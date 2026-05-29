@@ -88,8 +88,8 @@ const ALL_QUESTIONS = [
     multi: true,
     options: [
       { value: 'netflix',   label: 'Netflix',                      sub: '$15.49/mo' },
-      { value: 'spotify',   label: 'Spotify / Apple Music',        sub: '$10.99/mo' },
-      { value: 'apple',     label: 'Apple One / iCloud',           sub: '$16.95/mo' },
+      { value: 'spotify',   label: 'Spotify / Apple Music',        sub: '$11.99/mo' },
+      { value: 'apple',     label: 'Apple One / iCloud',           sub: '$19.95/mo' },
       { value: 'hulu',      label: 'Hulu / Disney+',               sub: '$17.99/mo' },
       { value: 'youtube',   label: 'YouTube Premium',              sub: '$13.99/mo' },
       { value: 'prime',     label: 'Amazon Prime',                 sub: '$14.99/mo' },
@@ -230,10 +230,13 @@ const ALL_QUESTIONS = [
 ];
 
 // ── Section benchmark totals (BLS CEX 2023, NYC-adjusted, age 25–34) ──────
+// Sums match the per-category BENCHMARKS in benchmarks.js:
+//   Food: delivery $130 + dining $290 + lunch $110 = $530
+//   Shopping: subs $85 + clothing $120 + impulse $65 + coffee $55 = $325
 const SECTION_BENCHMARKS = {
-  'Food':                       { total: 540,  note: 'delivery + dining out + lunch at work' },
+  'Food':                       { total: 530,  note: 'delivery + dining out + lunch at work' },
   'Getting Around':             { total: 175,  note: 'MetroCard + occasional Ubers' },
-  'Subscriptions & Shopping':   { total: 310,  note: 'subscriptions + clothing + online + coffee' },
+  'Subscriptions & Shopping':   { total: 325,  note: 'subscriptions + clothing + online + coffee' },
   'Personal & Lifestyle':       { total: 370,  note: 'beauty, events, travel, gym' },
 };
 
@@ -250,7 +253,7 @@ function calcFoodTotal(a) {
 }
 
 function calcTransitTotal(a) {
-  const metroCard = 134;
+  const metroCard = 132; // MTA 30-day unlimited MetroCard, 2025
   const nightsOut = { low: 1.5, mid: 4, high: 8, vhigh: 12 }[a.nightsOutFreq] ?? 4;
   const nightUber = { subway: 0, uberOneWay: 20, uberBothWays: 40 }[a.nightTransport] ?? 0;
   const dayExtra = { never: 0, sometimes: 20, often: 65, daily: 200 }[a.dayUber] ?? 0;
@@ -259,7 +262,7 @@ function calcTransitTotal(a) {
 
 function calcShoppingTotal(a) {
   const prices = {
-    netflix: 15.49, spotify: 10.99, apple: 16.95, hulu: 17.99,
+    netflix: 15.49, spotify: 11.99, apple: 19.95, hulu: 17.99,
     youtube: 13.99, prime: 14.99, news: 17.00, adobe: 54.99,
     gaming: 14.99, fitness: 12.99, sports: 25.00, classpass: 79.00, mealkit: 75.00,
   };
@@ -304,7 +307,7 @@ function SectionSummary({ section, answers, onContinue }) {
   const over = diff > 0;
 
   return (
-    <div className="max-w-md mx-auto px-4 py-6 space-y-5">
+    <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
       <div>
         <p className="text-xs font-semibold text-indigo-600 uppercase tracking-wide">Section complete</p>
         <h2 className="text-2xl font-bold text-slate-900 mt-1">{section}</h2>
@@ -483,7 +486,7 @@ export default function LifestyleInterview({ onComplete }) {
   if (!currentQ) return null;
 
   return (
-    <div className="max-w-md mx-auto px-4 py-6 space-y-5">
+    <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
       <div className="space-y-1">
         <div className="flex justify-between text-xs text-slate-400">
           <span>Question {qIndex + 1} of {visibleQuestions.length}</span>

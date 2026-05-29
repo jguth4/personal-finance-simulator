@@ -110,11 +110,11 @@ function EmergencyWarning({ surplus, monthlyExpenses }) {
       <p className="text-xs text-red-700">
         {surplus <= 0
           ? 'You\'re spending more than you earn. Any unexpected expense goes on a credit card.'
-          : `You have ${fmt(surplus)}/mo left over — less than a 1-month buffer. The average unexpected expense in NYC is $600.`}
+          : `You have ${fmt(surplus)}/mo left over — less than a 1-month buffer. The average unexpected expense is $400 or more.`}
       </p>
       <p className="text-xs text-red-600">
-        Source: Federal Reserve Report on the Economic Well-Being of U.S. Households (2023) —
-        40% of Americans can't cover a $400 unexpected expense.
+        Source: Federal Reserve SHED Report 2023 —
+        37% of Americans couldn't cover a $400 unexpected expense without borrowing.
       </p>
     </div>
   );
@@ -137,7 +137,8 @@ function CountdownBadge({ secondsLeft }) {
 
 function UnifiedOCBanner({ totalOC, surplus }) {
   const surplusInvested = surplus > 0 ? futureValue(surplus, 0.07, 40) : 0;
-  const deliveryOC = futureValue(20, 0.07, 30); // 1 fewer delivery/wk ≈ $20/mo saved
+  // 1 fewer delivery/wk: avg NYC order ~$30 (incl. fees + tip) × 4.33 wks/mo ≈ $130/mo
+  const deliveryOC = futureValue(130, 0.07, 30);
 
   return (
     <div className="bg-slate-900 text-white rounded-2xl p-5 space-y-3">
@@ -166,7 +167,7 @@ function UnifiedOCBanner({ totalOC, surplus }) {
 
       <div className="border-t border-slate-700 pt-3">
         <p className="text-xs text-slate-400">
-          One fewer delivery order per week (~$20/mo saved) invested for 30 years:{' '}
+          One fewer delivery order per week (~$130/mo saved) invested for 30 years:{' '}
           <span className="text-white font-semibold">{fmtK(deliveryOC)}</span>
         </p>
       </div>
@@ -219,7 +220,7 @@ export default function BudgetReveal({ budget, onAdjust, onContinue }) {
   }, 0);
 
   return (
-    <div className="max-w-md mx-auto px-4 py-6 space-y-5">
+    <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
 
       {/* ── Beat 1: The number ── */}
       <div className={`rounded-2xl p-6 text-center border-2 ${isOver ? 'bg-red-50 border-red-300' : surplus < 300 ? 'bg-amber-50 border-amber-300' : 'bg-emerald-50 border-emerald-300'}`}>

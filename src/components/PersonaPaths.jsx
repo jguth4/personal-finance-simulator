@@ -185,7 +185,7 @@ export default function PersonaPaths({ onDone }) {
           <span className="font-bold">{fmtK(futureValue(150, 0.07, 40))} by age 62.</span>
         </p>
         <p className="text-xs text-indigo-500 mt-1">
-          That's less than two subway rides and a coffee. The amount matters less than starting.
+          That's less than a daily latte ($6.50 avg in NYC). The amount matters less than starting.
         </p>
       </div>
 

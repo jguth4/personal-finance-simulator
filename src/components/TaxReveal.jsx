@@ -10,7 +10,7 @@ export default function TaxReveal({ onContinue }) {
   const [revealed, setRevealed] = useState(false);
 
   return (
-    <div className="flex flex-col items-center gap-6 px-4 py-8 max-w-md mx-auto">
+    <div className="flex flex-col items-center gap-6 px-4 py-8 max-w-2xl mx-auto">
       <div className="text-center">
         <p className="text-slate-500 text-sm font-medium uppercase tracking-wide mb-1">Your salary</p>
         <p className="text-5xl font-bold text-slate-900">${GROSS_ANNUAL.toLocaleString()}</p>

@@ -25,7 +25,7 @@ export default function BudgetResultCard({ selections, onReset, onInvesting }) {
   const isOver = surplus < 0;
 
   return (
-    <div className="max-w-md mx-auto px-4 py-6 space-y-5">
+    <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
       <div className="text-center">
         <h2 className="text-2xl font-bold text-slate-900">Your Monthly Budget</h2>
         <p className="text-slate-500 text-sm mt-1">Screenshot this to share with your class</p>

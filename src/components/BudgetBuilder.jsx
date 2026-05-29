@@ -19,7 +19,7 @@ function Remaining({ remaining }) {
 
   return (
     <div className={`sticky top-0 z-10 border-b px-4 py-3 ${bgColor}`}>
-      <div className="max-w-md mx-auto">
+      <div className="max-w-2xl mx-auto">
         <div className="flex justify-between items-center mb-1">
           <span className="text-sm font-medium text-slate-600">Monthly budget</span>
           <span className={`font-bold text-lg ${textColor}`}>
@@ -87,7 +87,7 @@ export default function BudgetBuilder({ selections, onChange, onFinish }) {
   const remaining = TAKE_HOME_MONTHLY - totalSpent;
 
   return (
-    <div className="max-w-md mx-auto">
+    <div className="max-w-2xl mx-auto">
       <Remaining remaining={remaining} />
 
       <div className="px-4 pt-4 pb-2">

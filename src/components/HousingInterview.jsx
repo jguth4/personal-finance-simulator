@@ -45,7 +45,7 @@ export default function HousingInterview({ onComplete }) {
   const rentPct = currentRent ? Math.round((currentRent / TAKE_HOME_MONTHLY) * 100) : null;
 
   return (
-    <div className="max-w-md mx-auto px-4 py-6 space-y-6">
+    <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
       {/* Header */}
       <div>
         <p className="text-xs text-indigo-600 font-semibold uppercase tracking-wide">Housing — Question {step + 1} of 3</p>

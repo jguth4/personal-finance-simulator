@@ -1,9 +1,12 @@
 import { useState, useMemo } from 'react';
 import { futureValue } from '../utils/finance';
+import { computeTaxBreakdown, TAKE_HOME_MONTHLY } from '../data/taxConstants';
 import { LineChart, Line, XAxis, YAxis, Tooltip as ReTooltip, ResponsiveContainer, Legend } from 'recharts';
 
-const RAISE_MONTHLY = 780; // $72,500 → $85,000 = $12,500 gross; after ~40% marginal = ~$780/mo net
-const AVERAGE_SAVED_RATE = 0.27; // Federal Reserve: avg American saves ~27% of a raise
+// After-tax raise: $72,500 → $85,000 NYC single filer, same tax model as taxConstants.js
+const GROSS_RAISE = 85000;
+const RAISE_MONTHLY = computeTaxBreakdown(GROSS_RAISE).takeHomeMonthly - TAKE_HOME_MONTHLY; // ~$632/mo
+const AVERAGE_SAVED_RATE = 0.27; // Approx. marginal propensity to save on income increases (BEA / NBER consumption research)
 
 const QUESTIONS = [
   {
@@ -112,7 +115,7 @@ export default function LifestyleInflation({ onFinish, budgetSurplus }) {
     const progress = ((qIdx + 1) / QUESTIONS.length) * 100;
 
     return (
-      <div className="max-w-md mx-auto px-4 py-6 space-y-5">
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
         {/* Fix D: surplus-aware framing */}
         {budgetSurplus !== undefined && budgetSurplus < 200 && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
@@ -174,7 +177,7 @@ export default function LifestyleInflation({ onFinish, budgetSurplus }) {
   const difference30yr = futureValue(RAISE_MONTHLY, 0.07, 30) - futureValue(Math.max(0, invested), 0.07, 30);
 
   return (
-    <div className="max-w-md mx-auto px-4 py-6 space-y-5">
+    <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
       <div>
         <p className="text-xs text-emerald-600 font-semibold uppercase tracking-wide">Lifestyle Inflation</p>
         <h2 className="text-xl font-bold text-slate-900 mt-1">What you did with your raise</h2>
@@ -205,7 +208,7 @@ export default function LifestyleInflation({ onFinish, budgetSurplus }) {
           <strong>${(totalExtraSpend / RAISE_MONTHLY).toFixed(2)} of every $1</strong>.
         </p>
         <p className="text-xs text-blue-500">
-          Source: Federal Reserve Survey of Consumer Finances, 2022
+          Source: Federal Reserve Board research; BEA personal consumption data
         </p>
       </div>
 

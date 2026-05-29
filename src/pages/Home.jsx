@@ -24,7 +24,7 @@ export default function Home() {
               <p className="text-xs font-semibold text-indigo-600 uppercase tracking-wide mb-0.5">Grade 10</p>
               <h2 className="text-lg font-bold text-slate-900">Budgeting</h2>
               <p className="text-slate-500 text-sm mt-1">
-                You just got a $65k job in NYC. Can you make it work?
+                You just got a $72,500 job in NYC. Can you make it work?
               </p>
             </div>
           </div>
