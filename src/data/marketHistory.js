@@ -97,9 +97,8 @@ export const LIFESTYLE_EVENTS = [
   {
     year: 4,
     scenario: "You're getting married. The wedding will cost $15,000. You're covering it from your savings.",
-    prompt: 'How many months do you pause investing to save for the wedding? (0 to keep investing)',
+    prompt: 'New monthly investment amount while saving for the wedding:',
     deductLumpSum: 15000,
-    pauseMonths: true,
   },
   {
     year: 7,
@@ -120,3 +119,25 @@ export const LIFESTYLE_EVENTS = [
     deductLumpSum: 0,
   },
 ];
+
+// Brief market context shown during running simulation (1-indexed years)
+// Crash years (5, 17, 19) are handled by MARKET_EVENTS overlays instead
+export const YEAR_CONTEXT = {
+  1:  'Bull market. Housing boom in full swing. Economy expanding.',
+  2:  'Strong growth continues. Consumer confidence near record highs.',
+  3:  'Record home prices. Markets surge. Easy credit era peaks.',
+  4:  'Housing cracks widen. Subprime mortgage warnings grow louder.',
+  6:  'Markets begin recovering. Government stimulus taking hold.',
+  7:  'Slow but steady recovery. Unemployment starts to fall.',
+  8:  'Near-zero interest rates boost equities and housing.',
+  9:  'Bull market resumes. Technology sector leads the charge.',
+  10: 'Strong economy. Job market near full employment.',
+  11: 'Markets near all-time highs. Bull run extends.',
+  12: 'Steady growth. Fed begins discussing rate normalization.',
+  13: 'Another record year for US stocks.',
+  14: 'Economic expansion continues. Volatility near historic lows.',
+  15: 'Late-cycle expansion. Fed raises rates slowly.',
+  16: 'One of the longest bull markets in history.',
+  18: 'Fastest market recovery ever. Fed keeps rates near 0%.',
+  20: 'Inflation cools. Markets stabilize. Economy adjusts to new rates.',
+};
