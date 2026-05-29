@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react';
 
-// Full question bank. showIf(answers) → false means skip this question.
 const ALL_QUESTIONS = [
   // ── FOOD ──────────────────────────────────────────────────────────────
   {
@@ -88,15 +87,15 @@ const ALL_QUESTIONS = [
     sub: 'Select all that apply',
     multi: true,
     options: [
-      { value: 'netflix',  label: 'Netflix',              sub: '$15.49/mo' },
-      { value: 'spotify',  label: 'Spotify / Apple Music', sub: '$10.99/mo' },
-      { value: 'apple',    label: 'Apple One / iCloud',   sub: '$16.95/mo' },
-      { value: 'hulu',     label: 'Hulu / Disney+',       sub: '$17.99/mo' },
-      { value: 'youtube',  label: 'YouTube Premium',      sub: '$13.99/mo' },
-      { value: 'prime',    label: 'Amazon Prime',         sub: '$14.99/mo' },
-      { value: 'news',     label: 'News (NYT, WSJ...)',   sub: '$17/mo' },
-      { value: 'adobe',    label: 'Adobe Creative Cloud', sub: '$54.99/mo' },
-      { value: 'gaming',    label: 'Gaming (Xbox/PS Plus)',        sub: '$14.99/mo' },
+      { value: 'netflix',   label: 'Netflix',                      sub: '$15.49/mo' },
+      { value: 'spotify',   label: 'Spotify / Apple Music',        sub: '$10.99/mo' },
+      { value: 'apple',     label: 'Apple One / iCloud',           sub: '$16.95/mo' },
+      { value: 'hulu',      label: 'Hulu / Disney+',               sub: '$17.99/mo' },
+      { value: 'youtube',   label: 'YouTube Premium',              sub: '$13.99/mo' },
+      { value: 'prime',     label: 'Amazon Prime',                 sub: '$14.99/mo' },
+      { value: 'news',      label: 'News (NYT, WSJ...)',           sub: '$17/mo' },
+      { value: 'adobe',     label: 'Adobe Creative Cloud',         sub: '$54.99/mo' },
+      { value: 'gaming',    label: 'Gaming (Xbox/PS Plus)',         sub: '$14.99/mo' },
       { value: 'fitness',   label: 'Fitness app (Peloton, Mirror)', sub: '$12.99/mo' },
       { value: 'sports',    label: 'Sports (ESPN+, NBA, NFL)',      sub: '$25/mo' },
       { value: 'classpass', label: 'Fitness classes (ClassPass)',   sub: '$79/mo' },
@@ -130,7 +129,7 @@ const ALL_QUESTIONS = [
     q: 'How often do you buy random stuff online?',
     sub: 'Amazon, TikTok Shop, impulse buys',
     options: [
-      { value: 'never', label: 'Barely ever',         sub: '0–1 orders/mo' },
+      { value: 'never', label: 'Barely ever',          sub: '0–1 orders/mo' },
       { value: 'low',   label: '1–2 orders per month', sub: '' },
       { value: 'mid',   label: '3–5 orders per month', sub: '' },
       { value: 'high',  label: '5+ orders per month',  sub: 'You have a problem 😅' },
@@ -230,6 +229,123 @@ const ALL_QUESTIONS = [
   },
 ];
 
+// ── Section benchmark totals (BLS CEX 2023, NYC-adjusted, age 25–34) ──────
+const SECTION_BENCHMARKS = {
+  'Food':                       { total: 540,  note: 'delivery + dining out + lunch at work' },
+  'Getting Around':             { total: 175,  note: 'MetroCard + occasional Ubers' },
+  'Subscriptions & Shopping':   { total: 310,  note: 'subscriptions + clothing + online + coffee' },
+  'Personal & Lifestyle':       { total: 370,  note: 'beauty, events, travel, gym' },
+};
+
+// ── Lightweight section total calculators ─────────────────────────────────
+function calcFoodTotal(a) {
+  const perWeek = { never: 0, low: 1.5, mid: 3.5, high: 5.5 };
+  const costPerOrder = { cheap: 22, mid: 30, expensive: 47 };
+  const delivery = Math.round((perWeek[a.deliveryFreq] ?? 0) * (costPerOrder[a.deliveryOrderCost] ?? 30) * 4.33);
+  const nightsPerMonth = { low: 1.5, mid: 4, high: 8, vhigh: 12 };
+  const perNight = { cheap: 25, mid: 50, high: 110, vhigh: 200 };
+  const dining = Math.round((nightsPerMonth[a.nightsOutFreq] ?? 4) * (perNight[a.nightsOutSpend] ?? 50));
+  const lunch = { bring: 20, mix: 120, buy: 260 }[a.lunch] ?? 120;
+  return delivery + dining + lunch;
+}
+
+function calcTransitTotal(a) {
+  const metroCard = 134;
+  const nightsOut = { low: 1.5, mid: 4, high: 8, vhigh: 12 }[a.nightsOutFreq] ?? 4;
+  const nightUber = { subway: 0, uberOneWay: 20, uberBothWays: 40 }[a.nightTransport] ?? 0;
+  const dayExtra = { never: 0, sometimes: 20, often: 65, daily: 200 }[a.dayUber] ?? 0;
+  return Math.round(metroCard + nightUber * nightsOut + dayExtra);
+}
+
+function calcShoppingTotal(a) {
+  const prices = {
+    netflix: 15.49, spotify: 10.99, apple: 16.95, hulu: 17.99,
+    youtube: 13.99, prime: 14.99, news: 17.00, adobe: 54.99,
+    gaming: 14.99, fitness: 12.99, sports: 25.00, classpass: 79.00, mealkit: 75.00,
+  };
+  const subs = Math.round((a.subscriptions ?? []).reduce((s, id) => s + (prices[id] ?? 0), 0));
+  const timesPerMonth = { rarely: 0.2, monthly: 1, weekly: 4 };
+  const avgHaul = { small: 35, medium: 100, large: 300, xlarge: 650 };
+  const clothing = Math.round((timesPerMonth[a.clothingFreq] ?? 1) * (avgHaul[a.clothingHaul] ?? 100));
+  const ordersPerMonth = { never: 0, low: 1.5, mid: 4, high: 6.5 };
+  const avgOrder = { cheap: 15, mid: 35, high: 75, vhigh: 150 };
+  const impulse = Math.round((ordersPerMonth[a.onlineOrders] ?? 1.5) * (avgOrder[a.onlineOrderCost] ?? 35));
+  const coffeePerWeek = { never: 0, low: 1.5, mid: 4, daily: 7 };
+  const coffee = Math.round((coffeePerWeek[a.coffeeFreq] ?? 0) * 6.5 * 4.33);
+  return subs + clothing + impulse + coffee;
+}
+
+function calcLifestyleTotal(a) {
+  const freqMap = { rarely: 0.25, monthly: 1, biweekly: 2, weekly: 4 };
+  const visitCost = { cheap: 22, mid: 55, high: 140, vhigh: 280 };
+  const beauty = Math.round((freqMap[a.beautyFreq] ?? 1) * (visitCost[a.beautySpend] ?? 55));
+  const eventsMap = { none: 0, one: 1, some: 2.5, many: 5 };
+  const events = Math.round((eventsMap[a.eventsPerMonth] ?? 1) * 95);
+  const trips = { none: 0, low: 1.5, mid: 3.5, high: 6 }[a.tripsPerYear] ?? 1.5;
+  const tripCost = { domestic: 400, city: 750, international: 1850 }[a.tripType] ?? 750;
+  const travel = Math.round((trips * tripCost) / 12);
+  const gym = { nothing: 0, budget: 18, mid: 60, premium: 250 }[a.gym] ?? 60;
+  return beauty + events + travel + gym;
+}
+
+function getSectionTotal(section, answers) {
+  if (section === 'Food') return calcFoodTotal(answers);
+  if (section === 'Getting Around') return calcTransitTotal(answers);
+  if (section === 'Subscriptions & Shopping') return calcShoppingTotal(answers);
+  if (section === 'Personal & Lifestyle') return calcLifestyleTotal(answers);
+  return 0;
+}
+
+// ── Section summary card ───────────────────────────────────────────────────
+function SectionSummary({ section, answers, onContinue }) {
+  const studentTotal = getSectionTotal(section, answers);
+  const benchmark = SECTION_BENCHMARKS[section];
+  const diff = studentTotal - benchmark.total;
+  const over = diff > 0;
+
+  return (
+    <div className="max-w-md mx-auto px-4 py-6 space-y-5">
+      <div>
+        <p className="text-xs font-semibold text-indigo-600 uppercase tracking-wide">Section complete</p>
+        <h2 className="text-2xl font-bold text-slate-900 mt-1">{section}</h2>
+      </div>
+
+      <div className={`rounded-2xl p-5 border ${over ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200'}`}>
+        <div className="flex justify-between items-start">
+          <div>
+            <p className="text-sm text-slate-600">Your choices</p>
+            <p className="text-3xl font-bold text-slate-900">${studentTotal.toLocaleString()}/mo</p>
+            <p className="text-xs text-slate-500 mt-1">{benchmark.note}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm text-slate-600">Typical for your age</p>
+            <p className="text-xl font-semibold text-slate-700">${benchmark.total.toLocaleString()}/mo</p>
+            <p className="text-xs text-slate-400 mt-1">BLS CEX 2023, NYC-adj.</p>
+          </div>
+        </div>
+
+        {diff !== 0 && (
+          <div className={`mt-3 pt-3 border-t ${over ? 'border-amber-200' : 'border-emerald-200'}`}>
+            <p className={`text-sm font-semibold ${over ? 'text-amber-700' : 'text-emerald-700'}`}>
+              {over
+                ? `$${diff.toLocaleString()}/mo above typical — $${(diff * 12).toLocaleString()} per year`
+                : `$${Math.abs(diff).toLocaleString()}/mo below typical — below-average spending here`}
+            </p>
+          </div>
+        )}
+      </div>
+
+      <button
+        onClick={onContinue}
+        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl text-base transition-colors"
+      >
+        Continue →
+      </button>
+    </div>
+  );
+}
+
+// ── Progress bar ───────────────────────────────────────────────────────────
 function ProgressBar({ current, total }) {
   return (
     <div className="w-full bg-slate-200 rounded-full h-1.5">
@@ -241,6 +357,7 @@ function ProgressBar({ current, total }) {
   );
 }
 
+// ── Question card ──────────────────────────────────────────────────────────
 function QuestionCard({ question, answers, onAnswer }) {
   const isMulti = question.multi;
   const current = answers[question.id] ?? (isMulti ? [] : null);
@@ -297,11 +414,13 @@ function QuestionCard({ question, answers, onAnswer }) {
   );
 }
 
+// ── Main component ─────────────────────────────────────────────────────────
 export default function LifestyleInterview({ onComplete }) {
   const [answers, setAnswers] = useState({});
   const [qIndex, setQIndex] = useState(0);
+  const [summarySection, setSummarySection] = useState(null);
+  const [pendingQIndex, setPendingQIndex] = useState(null);
 
-  // Filter to questions that are visible given current answers
   const visibleQuestions = useMemo(
     () => ALL_QUESTIONS.filter((q) => !q.showIf || q.showIf(answers)),
     [answers]
@@ -310,44 +429,61 @@ export default function LifestyleInterview({ onComplete }) {
   const currentQ = visibleQuestions[qIndex];
   const isMulti = currentQ?.multi;
   const currentAnswer = answers[currentQ?.id];
-  const hasAnswer = isMulti
-    ? Array.isArray(currentAnswer) // multi-select: can proceed even with 0 selected (no subs)
-    : currentAnswer != null;
+
+  function advanceOrSummary(updated, nextIdx, nextVisible) {
+    if (nextIdx >= nextVisible.length) {
+      onComplete(updated);
+      return;
+    }
+    const nextSection = nextVisible[nextIdx].section;
+    const curSection = nextVisible[qIndex]?.section ?? currentQ?.section;
+    if (nextSection !== curSection) {
+      setSummarySection(curSection);
+      setPendingQIndex(nextIdx);
+    } else {
+      setQIndex(nextIdx);
+    }
+  }
 
   function handleAnswer(id, value) {
     const updated = { ...answers, [id]: value };
     setAnswers(updated);
 
     if (!isMulti) {
-      // Auto-advance on single select
       const nextVisible = ALL_QUESTIONS.filter((q) => !q.showIf || q.showIf(updated));
-      const nextIdx = qIndex + 1;
-      if (nextIdx >= nextVisible.length) {
-        onComplete(updated);
-      } else {
-        setQIndex(nextIdx);
-      }
+      advanceOrSummary(updated, qIndex + 1, nextVisible);
     }
   }
 
   function handleNext() {
     const nextIdx = qIndex + 1;
-    if (nextIdx >= visibleQuestions.length) {
-      onComplete(answers);
-    } else {
-      setQIndex(nextIdx);
-    }
+    advanceOrSummary(answers, nextIdx, visibleQuestions);
   }
 
   function handleBack() {
     if (qIndex > 0) setQIndex(qIndex - 1);
   }
 
+  function handleSummaryContinue() {
+    setSummarySection(null);
+    setQIndex(pendingQIndex);
+    setPendingQIndex(null);
+  }
+
+  if (summarySection) {
+    return (
+      <SectionSummary
+        section={summarySection}
+        answers={answers}
+        onContinue={handleSummaryContinue}
+      />
+    );
+  }
+
   if (!currentQ) return null;
 
   return (
     <div className="max-w-md mx-auto px-4 py-6 space-y-5">
-      {/* Progress */}
       <div className="space-y-1">
         <div className="flex justify-between text-xs text-slate-400">
           <span>Question {qIndex + 1} of {visibleQuestions.length}</span>
@@ -356,14 +492,8 @@ export default function LifestyleInterview({ onComplete }) {
         <ProgressBar current={qIndex + 1} total={visibleQuestions.length} />
       </div>
 
-      {/* Question */}
-      <QuestionCard
-        question={currentQ}
-        answers={answers}
-        onAnswer={handleAnswer}
-      />
+      <QuestionCard question={currentQ} answers={answers} onAnswer={handleAnswer} />
 
-      {/* Controls */}
       <div className="flex items-center justify-between pt-2">
         <button
           onClick={handleBack}

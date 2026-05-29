@@ -79,7 +79,7 @@ function CustomTooltip({ active, payload, label }) {
   );
 }
 
-export default function LifestyleInflation({ onFinish }) {
+export default function LifestyleInflation({ onFinish, budgetSurplus }) {
   const [qIdx, setQIdx] = useState(0);
   const [selections, setSelections] = useState([]); // [extraSpend per question]
   const [done, setDone] = useState(false);
@@ -113,6 +113,18 @@ export default function LifestyleInflation({ onFinish }) {
 
     return (
       <div className="max-w-md mx-auto px-4 py-6 space-y-5">
+        {/* Fix D: surplus-aware framing */}
+        {budgetSurplus !== undefined && budgetSurplus < 200 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+            <p className="text-sm font-bold text-amber-900">Your current budget is already tight.</p>
+            <p className="text-sm text-amber-700 mt-1">
+              You left Grade 10 with <strong>{fmt(Math.max(0, budgetSurplus))}/mo</strong> in surplus.
+              A raise would feel like relief — and that's exactly when spending creeps up fastest.
+            </p>
+            <p className="text-xs text-amber-600 mt-1">Answer these honestly. No one is watching.</p>
+          </div>
+        )}
+
         {/* Frame */}
         <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
           <p className="text-sm font-bold text-emerald-900">You just got promoted 🎉</p>
@@ -222,11 +234,27 @@ export default function LifestyleInflation({ onFinish }) {
         )}
       </div>
 
+      {/* Fix M: Grade 10 → 11 bridge card */}
+      <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 space-y-1">
+        <p className="text-sm font-bold text-indigo-900">That's Grade 10.</p>
+        {budgetSurplus !== undefined && budgetSurplus > 0 ? (
+          <p className="text-sm text-indigo-700">
+            You're leaving this year with <strong>{fmt(budgetSurplus)}/mo surplus</strong> from your budget.
+            Next year, you figure out where that money goes — and what it becomes.
+          </p>
+        ) : (
+          <p className="text-sm text-indigo-700">
+            Your budget was tight. Next year, you'll learn why even <strong>small amounts invested early</strong> can grow into something big.
+          </p>
+        )}
+        <p className="text-xs text-indigo-500 mt-1">Grade 11: Compound Interest &amp; Investing →</p>
+      </div>
+
       <button
         onClick={onFinish}
         className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl text-sm transition-colors"
       >
-        Go to Investing Module →
+        Go to Grade 11: Investing →
       </button>
     </div>
   );

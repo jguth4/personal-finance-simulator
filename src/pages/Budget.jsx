@@ -134,6 +134,7 @@ export default function Budget() {
 
       {step === STEPS.LIFESTYLE && (
         <LifestyleInflation
+          budgetSurplus={computeSurplus(selections)}
           onFinish={() => navigate('/investing', { state: { budgetSurplus: computeSurplus(selections) } })}
         />
       )}

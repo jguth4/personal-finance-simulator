@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { TAKE_HOME_MONTHLY } from '../data/taxConstants';
 import { BENCHMARKS } from '../data/benchmarks';
-import { opportunityCost } from '../utils/finance';
+import { opportunityCost, futureValue } from '../utils/finance';
 
 const EDIT_DELAY_MS = 30000;
 
@@ -25,7 +25,7 @@ function OppCostCallout({ item }) {
   if (excess <= 0) return null;
 
   const oc = opportunityCost(excess);
-  if (oc < 5000) return null; // not worth showing for trivial amounts
+  if (oc < 500) return null;
 
   return (
     <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 space-y-0.5">
@@ -133,6 +133,47 @@ function CountdownBadge({ secondsLeft }) {
   );
 }
 
+// ── Unified OC + investing bridge banner ──────────────────────────────────
+
+function UnifiedOCBanner({ totalOC, surplus }) {
+  const surplusInvested = surplus > 0 ? futureValue(surplus, 0.07, 40) : 0;
+  const deliveryOC = futureValue(20, 0.07, 30); // 1 fewer delivery/wk ≈ $20/mo saved
+
+  return (
+    <div className="bg-slate-900 text-white rounded-2xl p-5 space-y-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">The bigger picture</p>
+
+      {totalOC > 0 && (
+        <div>
+          <p className="text-sm text-slate-300">Your above-average spending, invested for 30 years:</p>
+          <p className="text-2xl font-bold text-amber-400">{fmtK(totalOC)} foregone</p>
+          <p className="text-xs text-slate-400 mt-0.5">That's what your lifestyle costs in retirement wealth — not a verdict, a trade-off.</p>
+        </div>
+      )}
+
+      {surplus > 0 ? (
+        <div className="border-t border-slate-700 pt-3">
+          <p className="text-sm text-slate-300">Your {fmtK(surplus)}/mo surplus, invested from age 22:</p>
+          <p className="text-2xl font-bold text-emerald-400">{fmtK(surplusInvested)} by age 62</p>
+          <p className="text-xs text-slate-400 mt-0.5">At 7%/yr in an index fund. Next year we run the math on where this goes.</p>
+        </div>
+      ) : (
+        <div className="border-t border-slate-700 pt-3">
+          <p className="text-sm text-slate-300">Right now you have nothing left to invest.</p>
+          <p className="text-xs text-slate-400 mt-0.5">One adjustment could change that. Try the sandbox.</p>
+        </div>
+      )}
+
+      <div className="border-t border-slate-700 pt-3">
+        <p className="text-xs text-slate-400">
+          One fewer delivery order per week (~$20/mo saved) invested for 30 years:{' '}
+          <span className="text-white font-semibold">{fmtK(deliveryOC)}</span>
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────
 
 export default function BudgetReveal({ budget, onAdjust, onContinue }) {
@@ -209,18 +250,6 @@ export default function BudgetReveal({ budget, onAdjust, onContinue }) {
       {/* ── Beat 2: Breakdown ── */}
       {revealed && (
         <>
-          {/* Total opportunity cost summary */}
-          {totalOC > 50000 && (
-            <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
-              <p className="text-sm font-bold text-indigo-900">
-                Your above-average spending, invested for 30 years at 7%: <span className="text-indigo-700">{fmtK(totalOC)}</span>
-              </p>
-              <p className="text-xs text-indigo-600 mt-1">
-                That's the opportunity cost of your lifestyle choices above the typical NYC 25–34 year old. Not a verdict — a trade-off to understand.
-              </p>
-            </div>
-          )}
-
           {/* Groups */}
           {groupOrder.map((group) =>
             groups[group] ? (
@@ -234,6 +263,9 @@ export default function BudgetReveal({ budget, onAdjust, onContinue }) {
           )}
 
           <EmergencyWarning surplus={surplus} monthlyExpenses={totalSpent} />
+
+          {/* Fix L: Unified opportunity cost + investing bridge banner */}
+          <UnifiedOCBanner totalOC={totalOC} surplus={surplus} />
 
           {/* Controls */}
           <div className="space-y-3 pt-2">

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { NEIGHBORHOODS, LIVING_SITUATIONS, AMENITIES } from '../data/neighborhoods';
+import { NEIGHBORHOODS, LIVING_SITUATIONS, AMENITIES, computeRent } from '../data/neighborhoods';
+import { TAKE_HOME_MONTHLY } from '../data/taxConstants';
 
 const STEPS = ['situation', 'neighborhood', 'amenities'];
 
@@ -12,14 +13,12 @@ export default function HousingInterview({ onComplete }) {
   });
 
   function selectSituation(id) {
-    const updated = { ...answers, livingSituation: id };
-    setAnswers(updated);
+    setAnswers({ ...answers, livingSituation: id });
     setStep(1);
   }
 
   function selectNeighborhood(id) {
-    const updated = { ...answers, neighborhood: id };
-    setAnswers(updated);
+    setAnswers({ ...answers, neighborhood: id });
     setStep(2);
   }
 
@@ -32,7 +31,18 @@ export default function HousingInterview({ onComplete }) {
     }));
   }
 
+  // Fix A: "None" clears all amenities instead of appending 'none'
+  function clearAmenities() {
+    setAnswers((prev) => ({ ...prev, amenities: [] }));
+  }
+
   const progress = ((step + 1) / STEPS.length) * 100;
+
+  // Live rent calculation for amenities step
+  const currentRent = answers.neighborhood && answers.livingSituation
+    ? computeRent(answers.neighborhood, answers.livingSituation, answers.amenities)
+    : null;
+  const rentPct = currentRent ? Math.round((currentRent / TAKE_HOME_MONTHLY) * 100) : null;
 
   return (
     <div className="max-w-md mx-auto px-4 py-6 space-y-6">
@@ -45,6 +55,10 @@ export default function HousingInterview({ onComplete }) {
             style={{ width: `${progress}%` }}
           />
         </div>
+        {/* Fix B: income anchor on every step */}
+        <p className="text-xs text-slate-400 mt-2 text-right">
+          Your take-home after taxes: <span className="font-semibold text-slate-600">${TAKE_HOME_MONTHLY.toLocaleString()}/mo</span>
+        </p>
       </div>
 
       {/* Step 1: Living situation */}
@@ -79,6 +93,8 @@ export default function HousingInterview({ onComplete }) {
           <div className="space-y-2">
             {NEIGHBORHOODS.map((n) => {
               const price = n.rent[answers.livingSituation] ?? n.rent.studio;
+              const pct = Math.round((price / TAKE_HOME_MONTHLY) * 100);
+              const pctColor = pct > 40 ? 'text-red-600' : pct > 30 ? 'text-amber-600' : 'text-emerald-600';
               return (
                 <button
                   key={n.id}
@@ -87,7 +103,10 @@ export default function HousingInterview({ onComplete }) {
                 >
                   <div className="flex justify-between items-start">
                     <p className="font-semibold text-slate-900 pr-4">{n.name}</p>
-                    <p className="text-indigo-700 font-bold whitespace-nowrap">${price.toLocaleString()}/mo</p>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-indigo-700 font-bold">${price.toLocaleString()}/mo</p>
+                      <p className={`text-xs font-medium ${pctColor}`}>{pct}% of take-home</p>
+                    </div>
                   </div>
                   <p className="text-sm text-slate-500 mt-0.5">{n.description}</p>
                 </button>
@@ -103,11 +122,15 @@ export default function HousingInterview({ onComplete }) {
         <div className="space-y-4">
           <div>
             <h2 className="text-xl font-bold text-slate-900">Any must-have amenities?</h2>
-            <p className="text-slate-500 text-sm mt-1">These add a premium to your rent. Select all that apply.</p>
+            <p className="text-slate-500 text-sm mt-1">Select all that apply. Some save money, some cost more.</p>
           </div>
           <div className="space-y-2">
             {AMENITIES.map((a) => {
               const selected = answers.amenities.includes(a.id);
+              const costLabel = a.monthlyCost < 0
+                ? `-$${Math.abs(a.monthlyCost)}/mo`
+                : `+$${a.monthlyCost}/mo`;
+              const costColor = a.monthlyCost < 0 ? 'text-emerald-600' : 'text-amber-600';
               return (
                 <button
                   key={a.id}
@@ -124,7 +147,7 @@ export default function HousingInterview({ onComplete }) {
                       <p className="text-sm text-slate-500 mt-0.5">{a.description}</p>
                     </div>
                     <div className="text-right ml-4">
-                      <p className="text-sm font-semibold text-amber-600">+${a.monthlyCost}/mo</p>
+                      <p className={`text-sm font-semibold ${costColor}`}>{costLabel}</p>
                       <div className={`w-5 h-5 rounded border-2 mt-1 ml-auto flex items-center justify-center ${selected ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300'}`}>
                         {selected && <span className="text-white text-xs">✓</span>}
                       </div>
@@ -133,14 +156,47 @@ export default function HousingInterview({ onComplete }) {
                 </button>
               );
             })}
+            {/* Fix A: None button clears amenities instead of appending 'none' */}
             <button
-              onClick={() => toggleAmenity('none')}
-              className="w-full text-left bg-white border border-slate-200 rounded-xl p-4 hover:border-indigo-300 transition-all"
+              onClick={clearAmenities}
+              className={`w-full text-left border rounded-xl p-4 transition-all ${
+                answers.amenities.length === 0
+                  ? 'bg-indigo-50 border-indigo-400'
+                  : 'bg-white border-slate-200 hover:border-indigo-300'
+              }`}
             >
               <p className="font-semibold text-slate-900">None — basics only</p>
               <p className="text-sm text-slate-500 mt-0.5">No premium amenities, lowest rent for my situation</p>
             </button>
           </div>
+
+          {/* Fix C: Housing cost summary before proceeding */}
+          {currentRent !== null && (
+            <div className={`rounded-xl p-4 border ${
+              rentPct > 40 ? 'bg-red-50 border-red-200' :
+              rentPct > 30 ? 'bg-amber-50 border-amber-200' :
+              'bg-emerald-50 border-emerald-200'
+            }`}>
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-sm font-bold text-slate-900">Your estimated rent</p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {rentPct > 40
+                      ? 'Housing experts recommend keeping rent under 30% of take-home.'
+                      : rentPct > 30
+                      ? 'Getting close to the 30% guideline. Watch the rest of your budget.'
+                      : "Under 30% — leaves room for savings and life."}
+                  </p>
+                </div>
+                <div className="text-right ml-4">
+                  <p className="text-xl font-bold text-slate-900">${currentRent.toLocaleString()}/mo</p>
+                  <p className={`text-sm font-semibold ${rentPct > 40 ? 'text-red-600' : rentPct > 30 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                    {rentPct}% of take-home
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           <button
             onClick={() => onComplete(answers)}

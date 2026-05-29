@@ -16,21 +16,52 @@ function fmtFull(n) {
 }
 
 const RETURN_PRESETS = [
-  { label: 'HYSA', rate: 0.045, description: 'High-yield savings account (~4.5%)' },
-  { label: 'Bonds', rate: 0.05, description: 'Bond index fund (~5%)' },
-  { label: 'Index fund', rate: 0.07, description: 'S&P 500 index fund (historical avg ~7% after inflation)' },
-  { label: 'Aggressive', rate: 0.10, description: 'Growth stocks / 100% equity (~10% historical, more volatile)' },
+  {
+    label: 'HYSA',
+    rate: 0.045,
+    description: 'High-yield savings account (~4.5%). Zero risk. But barely beats inflation — this is saving, not investing.',
+  },
+  {
+    label: 'Bonds',
+    rate: 0.05,
+    description: 'Bond index fund (~5%). Lower risk than stocks. Usually paired with stocks for stability near retirement.',
+  },
+  {
+    label: 'Index fund',
+    rate: 0.07,
+    description: 'S&P 500 index (historical ~7%/yr after inflation). Single-year swings: −37% to +32%. You don\'t panic-sell. JL Collins\'s recommendation.',
+  },
+  {
+    label: 'Aggressive',
+    rate: 0.10,
+    description: 'Growth stocks / 100% equity (~10% historical avg). Highest long-run returns. In 2008: −50%. In 2022: −20%. Only if you can stomach the drops.',
+  },
 ];
 
 const YEARS = [3, 5, 10, 20, 30, 40];
 
+// Closest persona by monthly amount
+const PERSONAS_REF = [
+  { id: 'sam',    name: 'Sam',   job: 'Elementary teacher',  monthlyAmount: 200, startAge: 22 },
+  { id: 'maya',   name: 'Maya',  job: 'Electrician',         monthlyAmount: 350, startAge: 22 },
+  { id: 'jordan', name: 'Jordan', job: 'Software engineer',  monthlyAmount: 600, startAge: 32 },
+  { id: 'alex',   name: 'Alex',  job: 'Physician',           monthlyAmount: 2000, startAge: 35 },
+];
+
+function closestPersona(surplus) {
+  return PERSONAS_REF.reduce((best, p) =>
+    Math.abs(p.monthlyAmount - surplus) < Math.abs(best.monthlyAmount - surplus) ? p : best
+  );
+}
+
 export default function InvestingFlow({ budgetSurplus }) {
   const [showPaths, setShowPaths] = useState(true);
+  const [personaBanner, setPersonaBanner] = useState(null); // persona object shown after paths close
   const [surplus, setSurplus] = useState(budgetSurplus ?? 300);
   const [debtBalance, setDebtBalance] = useState(3000);
   const [debtRate, setDebtRate] = useState(0.24);
-  const [investRateIdx, setInvestRateIdx] = useState(2); // index fund default
-  const [expenseRatio, setExpenseRatio] = useState(0.0003); // 0.03% index fund default
+  const [investRateIdx, setInvestRateIdx] = useState(2);
+  const [expenseRatio, setExpenseRatio] = useState(0.0003);
   const [accountType, setAccountType] = useState('roth');
   const [matchEnabled, setMatchEnabled] = useState(true);
   const [horizon, setHorizon] = useState(30);
@@ -38,62 +69,57 @@ export default function InvestingFlow({ budgetSurplus }) {
   const investRate = RETURN_PRESETS[investRateIdx].rate;
   const netRate = Math.max(0, investRate - expenseRatio);
 
-  // Tax multiplier: Roth = full value (tax-free), Traditional = ~75%, Taxable = ~85%
   const TAX_MULT = { roth: 1.0, traditional: 0.75, taxable: 0.85 };
   const taxMult = TAX_MULT[accountType] ?? 1.0;
 
-  // 401k match: employer matches 3% of salary up to employee contributing 3%
   const SALARY = 72500;
-  const MATCH_CAP_ANNUAL = SALARY * 0.03; // $1,950/yr = $162.50/mo
+  const MATCH_CAP_ANNUAL = SALARY * 0.03;
   const matchMonthly = matchEnabled ? Math.min(surplus, MATCH_CAP_ANNUAL / 12) : 0;
   const effectiveMonthly = surplus + matchMonthly;
 
-  // Debt: monthly interest cost
   const monthlyInterest = debtBalance > 0 ? debtBalance * (debtRate / 12) : 0;
   const debtPayment = Math.min(surplus, debtBalance > 0 ? Math.max(25, monthlyInterest + 50) : 0);
   const payoffMonths = debtPayoffMonths(debtBalance, debtRate, debtPayment);
-  const surplusAfterDebt = Math.max(0, surplus - debtPayment);
 
-  // Scenario A: Do nothing — savings account at 0.5%
-  // Scenario B: Invest from day one (ignore debt)
-  // Scenario C: Pay off debt first, then invest full surplus + match
-
-  const scenarioA = useMemo(() => futureValue(surplus * 0.01 / 12 > 0 ? surplus : surplus, 0.005, horizon), [surplus, horizon]);
-
+  const scenarioA = useMemo(() => futureValue(surplus, 0.005, horizon), [surplus, horizon]);
   const scenarioB = useMemo(() => futureValue(effectiveMonthly, netRate, horizon) * taxMult, [effectiveMonthly, netRate, horizon, taxMult]);
-
   const scenarioC = useMemo(() => {
     if (debtBalance <= 0 || payoffMonths === Infinity) return futureValue(effectiveMonthly, netRate, horizon) * taxMult;
     const debtYears = payoffMonths / 12;
     if (debtYears >= horizon) return 0;
-    const remainingYears = horizon - debtYears;
-    const fullContrib = surplus;
-    const effectiveFull = matchEnabled ? fullContrib + Math.min(fullContrib, MATCH_CAP_ANNUAL / 12) : fullContrib;
-    return futureValue(effectiveFull, netRate, remainingYears) * taxMult;
-  }, [debtBalance, debtRate, payoffMonths, surplus, netRate, horizon, matchEnabled, surplusAfterDebt, taxMult]);
+    const effectiveFull = matchEnabled ? surplus + Math.min(surplus, MATCH_CAP_ANNUAL / 12) : surplus;
+    return futureValue(effectiveFull, netRate, horizon - debtYears) * taxMult;
+  }, [debtBalance, debtRate, payoffMonths, surplus, netRate, horizon, matchEnabled, taxMult]);
 
-  const chartData = useMemo(() => {
-    return YEARS.filter((y) => y <= horizon + 1).map((y) => ({
-      year: y,
-      age: 22 + y,
-      doNothing: Math.round(futureValue(surplus, 0.005, y)),
-      investNow: Math.round(futureValue(effectiveMonthly, netRate, y) * taxMult),
-      payDebtFirst: (() => {
-        if (debtBalance <= 0) return Math.round(futureValue(effectiveMonthly, netRate, y) * taxMult);
-        const dm = payoffMonths / 12;
-        if (dm >= y) return 0;
-        const rem = y - dm;
-        const eff = matchEnabled ? surplus + Math.min(surplus, MATCH_CAP_ANNUAL / 12) : surplus;
-        return Math.round(futureValue(eff, netRate, rem) * taxMult);
-      })(),
-    }));
-  }, [surplus, effectiveMonthly, netRate, debtBalance, payoffMonths, horizon, matchEnabled, taxMult]);
+  // Fix I: compute roth value always so we can compare vs traditional
+  const rothValue = useMemo(() => futureValue(effectiveMonthly, netRate, horizon), [effectiveMonthly, netRate, horizon]);
+  const traditionalValue = useMemo(() => rothValue * 0.75, [rothValue]);
+
+  const chartData = useMemo(() => YEARS.filter((y) => y <= horizon + 1).map((y) => ({
+    year: y,
+    age: 22 + y,
+    doNothing: Math.round(futureValue(surplus, 0.005, y)),
+    investNow: Math.round(futureValue(effectiveMonthly, netRate, y) * taxMult),
+    payDebtFirst: (() => {
+      if (debtBalance <= 0) return Math.round(futureValue(effectiveMonthly, netRate, y) * taxMult);
+      const dm = payoffMonths / 12;
+      if (dm >= y) return 0;
+      const eff = matchEnabled ? surplus + Math.min(surplus, MATCH_CAP_ANNUAL / 12) : surplus;
+      return Math.round(futureValue(eff, netRate, y - dm) * taxMult);
+    })(),
+  })), [surplus, effectiveMonthly, netRate, debtBalance, payoffMonths, horizon, matchEnabled, taxMult]);
 
   const lateStartValue = useMemo(() => {
-    const yearsRemaining = horizon - 10;
-    if (yearsRemaining <= 0) return 0;
-    return futureValue(effectiveMonthly, netRate, yearsRemaining) * taxMult;
+    const remaining = horizon - 10;
+    return remaining > 0 ? futureValue(effectiveMonthly, netRate, remaining) * taxMult : 0;
   }, [effectiveMonthly, netRate, horizon, taxMult]);
+
+  // Fix J: when paths close, show persona matching banner
+  function handlePathsDone() {
+    const persona = closestPersona(surplus);
+    setPersonaBanner(persona);
+    setShowPaths(false);
+  }
 
   return (
     <div className="max-w-md mx-auto space-y-5 px-4 py-5">
@@ -118,9 +144,9 @@ export default function InvestingFlow({ budgetSurplus }) {
         </div>
       )}
 
-      {/* Persona paths — shown first, collapses when student is ready to build their own */}
+      {/* Persona paths — shown first, collapses when student is ready */}
       {showPaths ? (
-        <PersonaPaths onDone={() => setShowPaths(false)} />
+        <PersonaPaths onDone={handlePathsDone} />
       ) : (
         <button
           onClick={() => setShowPaths(true)}
@@ -130,7 +156,53 @@ export default function InvestingFlow({ budgetSurplus }) {
         </button>
       )}
 
-      {/* Surplus input */}
+      {/* Fix J: Persona matching banner after paths close */}
+      {!showPaths && personaBanner && (
+        <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3">
+          <p className="text-sm font-semibold text-indigo-900">
+            Your ${surplus.toLocaleString()}/mo surplus puts you closest to <span style={{ color: '#6366f1' }}>{personaBanner.name}</span> — the {personaBanner.job}.
+          </p>
+          <p className="text-xs text-indigo-600 mt-0.5">
+            {personaBanner.startAge === 22
+              ? `${personaBanner.name} starts at 22. So do you. Every year you wait shrinks your final number — the chart shows exactly how much.`
+              : `${personaBanner.name} starts at ${personaBanner.startAge}. You're younger — that gap is worth more than you think.`}
+          </p>
+        </div>
+      )}
+
+      {/* Fix G: 401k match — FIRST control, most prominently shown */}
+      <div className={`border rounded-xl p-4 ${matchEnabled ? 'bg-white border-slate-200' : 'bg-red-50 border-red-300'}`}>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-slate-800 flex items-center">
+              401(k) employer match
+              <Tooltip text="Most employers match your 401k contributions up to 3% of salary — free money added to your account instantly. This is a 100% return on matched dollars before the market does anything." />
+            </p>
+            {matchEnabled ? (
+              <p className="text-xs text-emerald-700 font-semibold mt-0.5">
+                +{fmtFull(Math.round(matchMonthly))}/mo free from employer · 100% instant return
+              </p>
+            ) : (
+              <p className="text-xs text-red-700 font-semibold mt-0.5">
+                ⚠️ You're leaving {fmtFull(Math.round(MATCH_CAP_ANNUAL / 12))}/mo on the table. No investment beats free money.
+              </p>
+            )}
+          </div>
+          <button
+            onClick={() => setMatchEnabled((v) => !v)}
+            className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${matchEnabled ? 'bg-indigo-600' : 'bg-red-400'}`}
+          >
+            <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${matchEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+          </button>
+        </div>
+        {!matchEnabled && (
+          <p className="text-xs text-red-600 mt-2 pt-2 border-t border-red-200">
+            This is the first rule of investing: always take the employer match. It's an instant 100% return before you even start. Toggle it back on.
+          </p>
+        )}
+      </div>
+
+      {/* Surplus slider */}
       <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
         <div className="flex items-center justify-between">
           <label className="text-sm font-semibold text-slate-800 flex items-center">
@@ -140,11 +212,7 @@ export default function InvestingFlow({ budgetSurplus }) {
           <span className="text-indigo-700 font-bold">{fmtFull(surplus)}</span>
         </div>
         <input
-          type="range"
-          min={50}
-          max={TAKE_HOME_MONTHLY}
-          step={25}
-          value={surplus}
+          type="range" min={50} max={TAKE_HOME_MONTHLY} step={25} value={surplus}
           onChange={(e) => setSurplus(Number(e.target.value))}
           className="w-full accent-indigo-600"
         />
@@ -154,7 +222,7 @@ export default function InvestingFlow({ budgetSurplus }) {
         </div>
       </div>
 
-      {/* Contribution comparison — "what if I saved more?" */}
+      {/* Contribution comparison */}
       {(() => {
         const half = Math.max(50, Math.round(surplus / 2));
         const double = Math.min(TAKE_HOME_MONTHLY, surplus * 2);
@@ -175,7 +243,10 @@ export default function InvestingFlow({ budgetSurplus }) {
               ))}
             </div>
             {extra > 5000 && (
-              <p className="text-xs text-slate-500">Doubling your investment = <strong className="text-slate-700">{fmt(extra)} more</strong> at age {22 + horizon}.</p>
+              <p className="text-xs text-slate-500">
+                Doubling your investment = <strong className="text-slate-700">{fmt(extra)} more</strong> at age {22 + horizon}.
+                That's roughly one fewer night out per week.
+              </p>
             )}
           </div>
         );
@@ -193,11 +264,7 @@ export default function InvestingFlow({ budgetSurplus }) {
           </span>
         </div>
         <input
-          type="range"
-          min={0}
-          max={20000}
-          step={500}
-          value={debtBalance}
+          type="range" min={0} max={20000} step={500} value={debtBalance}
           onChange={(e) => setDebtBalance(Number(e.target.value))}
           className="w-full accent-red-500"
         />
@@ -209,7 +276,6 @@ export default function InvestingFlow({ budgetSurplus }) {
             )}
           </div>
         )}
-        {/* APR selector */}
         <div>
           <p className="text-xs text-slate-500 mb-1.5">Your credit card APR</p>
           <div className="grid grid-cols-3 gap-1">
@@ -225,7 +291,7 @@ export default function InvestingFlow({ budgetSurplus }) {
         </div>
       </div>
 
-      {/* Return rate */}
+      {/* Return rate — Fix H: add risk description for selected type */}
       <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-2">
         <p className="text-sm font-semibold text-slate-800 flex items-center">
           Investment type
@@ -233,22 +299,20 @@ export default function InvestingFlow({ budgetSurplus }) {
         </p>
         <div className="grid grid-cols-4 gap-1.5">
           {RETURN_PRESETS.map((p, i) => (
-            <button
-              key={i}
-              onClick={() => setInvestRateIdx(i)}
+            <button key={i} onClick={() => setInvestRateIdx(i)}
               className={`rounded-lg py-2 text-center text-xs font-semibold border transition-all ${
-                investRateIdx === i
-                  ? 'bg-indigo-600 text-white border-indigo-600'
-                  : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300'
+                investRateIdx === i ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300'
               }`}
             >
               <div>{p.label}</div>
-              <div className={`text-xs mt-0.5 ${investRateIdx === i ? 'text-indigo-200' : 'text-slate-400'}`}>
-                {Math.round(p.rate * 100)}%
-              </div>
+              <div className={`text-xs mt-0.5 ${investRateIdx === i ? 'text-indigo-200' : 'text-slate-400'}`}>{Math.round(p.rate * 100)}%</div>
             </button>
           ))}
         </div>
+        {/* Fix H: selected type description */}
+        <p className="text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2 leading-relaxed">
+          {RETURN_PRESETS[investRateIdx].description}
+        </p>
       </div>
 
       {/* Expense ratio */}
@@ -278,32 +342,7 @@ export default function InvestingFlow({ budgetSurplus }) {
         })()}
       </div>
 
-      {/* 401k match toggle */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-semibold text-slate-800 flex items-center">
-              401(k) employer match
-              <Tooltip text="Many employers match your 401k contributions up to 3% of salary. That's free money — an instant 100% return on matched dollars." />
-            </p>
-            <p className="text-xs text-slate-500 mt-0.5">
-              {matchEnabled
-                ? `+${fmtFull(Math.round(matchMonthly))}/mo free from employer`
-                : 'You\'re leaving money on the table'}
-            </p>
-          </div>
-          <button
-            onClick={() => setMatchEnabled((v) => !v)}
-            className={`relative w-11 h-6 rounded-full transition-colors ${matchEnabled ? 'bg-indigo-600' : 'bg-slate-300'}`}
-          >
-            <span
-              className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${matchEnabled ? 'translate-x-5' : 'translate-x-0.5'}`}
-            />
-          </button>
-        </div>
-      </div>
-
-      {/* Account type: Roth vs Traditional */}
+      {/* Account type — Fix I: side-by-side Roth vs Traditional */}
       <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-2">
         <p className="text-sm font-semibold text-slate-800 flex items-center">
           Account type
@@ -318,14 +357,37 @@ export default function InvestingFlow({ budgetSurplus }) {
             </button>
           ))}
         </div>
+
         {accountType === 'roth' && (
           <p className="text-xs text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2">
-            At 22 you're likely in your lowest tax bracket ever. Roth means you pay taxes <strong>now</strong> and <strong>never again</strong> — not on a single dollar of growth.
+            At 22 you're likely in your lowest tax bracket ever. Roth means you pay taxes <strong>now</strong> and <strong>never again</strong> — not on a single dollar of growth over {horizon} years.
           </p>
         )}
+
+        {/* Fix I: Show both values side by side when Traditional is selected */}
         {accountType === 'traditional' && (
-          <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
-            Showing estimated after-tax value (×0.75). You'll owe income tax on every withdrawal in retirement — and may be in a higher bracket by then.
+          <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 space-y-2">
+            <div className="grid grid-cols-2 gap-2 text-center">
+              <div>
+                <p className="text-xs text-emerald-700 font-semibold">Roth (pay taxes now)</p>
+                <p className="text-lg font-bold text-emerald-700">{fmt(rothValue)}</p>
+                <p className="text-xs text-emerald-600">tax-free at 62</p>
+              </div>
+              <div>
+                <p className="text-xs text-amber-700 font-semibold">Traditional (pay later)</p>
+                <p className="text-lg font-bold text-amber-700">{fmt(traditionalValue)}</p>
+                <p className="text-xs text-amber-600">after ~25% tax at withdrawal</p>
+              </div>
+            </div>
+            <p className="text-xs text-amber-700 text-center pt-1 border-t border-amber-200">
+              The IRS collects <strong>{fmt(rothValue - traditionalValue)}</strong> at withdrawal. With Roth, you already paid — and kept the difference.
+            </p>
+          </div>
+        )}
+
+        {accountType === 'taxable' && (
+          <p className="text-xs text-slate-600 bg-slate-50 rounded-lg px-3 py-2">
+            A regular brokerage account. No contribution limits, but gains are taxed. Showing estimated 85% after capital gains tax. Good for saving beyond IRA/401k limits.
           </p>
         )}
       </div>
@@ -341,13 +403,9 @@ export default function InvestingFlow({ budgetSurplus }) {
         </div>
         <div className="grid grid-cols-6 gap-1">
           {YEARS.map((y) => (
-            <button
-              key={y}
-              onClick={() => setHorizon(y)}
+            <button key={y} onClick={() => setHorizon(y)}
               className={`py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                horizon === y
-                  ? 'bg-indigo-600 text-white border-indigo-600'
-                  : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300'
+                horizon === y ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300'
               }`}
             >
               {y}yr
@@ -393,6 +451,31 @@ export default function InvestingFlow({ budgetSurplus }) {
             <p className="text-lg font-bold text-indigo-700">{fmt(scenarioB)}</p>
           </div>
         </div>
+
+        {/* Fix K: retirement number anchor */}
+        {scenarioB > 10000 && (
+          <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 space-y-1">
+            <p className="text-xs font-semibold text-slate-600">What does {fmt(scenarioB)} actually buy in retirement?</p>
+            <div className="grid grid-cols-3 gap-2 text-center mt-2">
+              <div>
+                <p className="text-xs text-slate-500">4% withdrawal/yr</p>
+                <p className="text-sm font-bold text-slate-800">{fmtFull(Math.round(scenarioB * 0.04))}</p>
+                <p className="text-xs text-slate-400">({fmtFull(Math.round(scenarioB * 0.04 / 12))}/mo)</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">+ Social Security</p>
+                <p className="text-sm font-bold text-slate-800">~$18,000</p>
+                <p className="text-xs text-slate-400">(estimated avg)</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Total income/yr</p>
+                <p className="text-sm font-bold text-indigo-700">{fmtFull(Math.round(scenarioB * 0.04 + 18000))}</p>
+                <p className="text-xs text-slate-400">at age {22 + horizon}</p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">4% rule: standard financial planning withdrawal rate. SS estimate: SSA.gov average 2025.</p>
+          </div>
+        )}
       </div>
 
       {/* Cost of waiting callout */}
