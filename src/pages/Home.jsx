@@ -13,7 +13,7 @@ export default function Home() {
         </p>
       </div>
 
-      <div className="w-full max-w-sm space-y-3">
+      <div className="w-full max-w-md space-y-3">
         <button
           onClick={() => navigate('/budget')}
           className="w-full bg-white border-2 border-indigo-200 hover:border-indigo-400 hover:bg-indigo-50 active:bg-indigo-100 rounded-2xl p-5 text-left transition-all"
@@ -41,6 +41,22 @@ export default function Home() {
               <h2 className="text-lg font-bold text-slate-900">Compound Interest</h2>
               <p className="text-slate-500 text-sm mt-1">
                 Debt, investing, and the power of starting early.
+              </p>
+            </div>
+          </div>
+        </button>
+
+        <button
+          onClick={() => navigate('/simulation')}
+          className="w-full bg-white border-2 border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50 active:bg-emerald-100 rounded-2xl p-5 text-left transition-all"
+        >
+          <div className="flex items-start gap-4">
+            <div className="text-3xl">⏱</div>
+            <div>
+              <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wide mb-0.5">Market Simulator</p>
+              <h2 className="text-lg font-bold text-slate-900">20 Years of Real Markets</h2>
+              <p className="text-slate-500 text-sm mt-1">
+                Real historical data. Real crashes. Will you hold through them?
               </p>
             </div>
           </div>
