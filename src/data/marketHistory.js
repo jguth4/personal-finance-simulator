@@ -6,6 +6,13 @@
 
 export const TOTAL_YEARS = 20;
 
+// Assumed income/expense baseline for cash flow simulation
+// Based on Grade 10 budget: $72,500 salary → $4,847/mo NYC take-home
+// Base expenses: rent w/roommate $1,500 + food $700 + transit $134 + phone/utilities/basics $566 = $2,900
+export const MONTHLY_INCOME = 4847;
+export const MONTHLY_BASE_EXPENSES_DEFAULT = 2900;
+export const MAX_MONTHLY_INVESTABLE = MONTHLY_INCOME - MONTHLY_BASE_EXPENSES_DEFAULT; // 1,947
+
 // CALENDAR_YEARS[i] = the real calendar year for simulation Year i+1 (0-indexed internally)
 // Used ONLY in the end reveal — never shown during simulation.
 export const CALENDAR_YEARS = [
@@ -56,7 +63,6 @@ export const INFLATION = [
 ];
 
 // Market crash events — auto-pause the simulation and demand a decision
-// year is 1-indexed (Year 1 = first year of simulation)
 export const MARKET_EVENTS = [
   {
     year: 5, // 2008
@@ -78,45 +84,398 @@ export const MARKET_EVENTS = [
   },
 ];
 
-// Real headlines revealed at the very end — maps year to historical context
+// Real headlines revealed at the very end
 export const REAL_HEADLINES = [
   { year: 5,  calYear: 2008, text: 'September 15, 2008: Lehman Brothers files for bankruptcy — the largest in US history. Dow falls 504 points.' },
   { year: 17, calYear: 2020, text: 'March 11, 2020: WHO declares COVID-19 a global pandemic. S&P 500 enters bear market in record 16 days.' },
   { year: 19, calYear: 2022, text: 'June 10, 2022: US inflation hits 9.1%, highest since 1981. Fed raises rates 4.25% in 12 months — bonds collapse alongside stocks.' },
 ];
 
-// Lifestyle events — pause simulation and prompt for new monthly contribution
-// year is 1-indexed; deductLumpSum removes from most-liquid asset (cash > bonds > vtsax priority)
+// Lifestyle events — now use structured choices with cash/expense/contribution impacts.
+// Each choice shows an opportunity cost computed at Year 20 (7% real rate) in the UI.
+//
+// Choice fields:
+//   monthlyContribDelta  — change to monthly investment amount (+/-)
+//   monthlyExpenseDelta  — change to monthly base expenses (+/-)
+//   cashImpact           — one-time cash change (negative = expense from checking account)
+//   investLumpSum        — lump sum added directly to investment portfolio (from bonus/windfall)
+//   lumpSumLoss          — if true, this cashImpact represents money permanently lost (for reveal callout)
+//   note                 — one-sentence framing shown under the choice
 export const LIFESTYLE_EVENTS = [
   {
     year: 2,
-    scenario: 'You got a new job offer and accepted. Your salary increases by $8,000/yr — about $200/mo more after taxes.',
-    prompt: 'New monthly investment amount:',
-    deductLumpSum: 0,
+    title: 'New job offer',
+    scenario: 'You got recruited for a better position. Salary jumps $8,000/yr — about $200/mo more after NYC taxes. What do you do with the raise?',
+    choices: [
+      {
+        label: 'Invest the full raise',
+        emoji: '📈',
+        monthlyContribDelta: +200,
+        monthlyExpenseDelta: 0,
+        cashImpact: 0,
+        note: 'Lifestyle stays the same. The full raise compounds.',
+      },
+      {
+        label: 'Invest half, spend half',
+        emoji: '⚖️',
+        monthlyContribDelta: +100,
+        monthlyExpenseDelta: +100,
+        cashImpact: 0,
+        note: 'A little better life, a little more compounding.',
+      },
+      {
+        label: 'Absorb it into lifestyle',
+        emoji: '☕',
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: +200,
+        cashImpact: 0,
+        note: 'Nicer coffee, nicer lunches. The raise just disappears.',
+      },
+    ],
+  },
+  {
+    year: 3,
+    title: 'Rent increase',
+    scenario: 'Lease renewal time. Your landlord wants $350/mo more — or you can make a change.',
+    choices: [
+      {
+        label: 'Pay the increase',
+        emoji: '🏠',
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: +350,
+        cashImpact: 0,
+        note: 'Same place, higher price. $350/mo less left to invest.',
+      },
+      {
+        label: 'Find a roommate',
+        emoji: '🤝',
+        monthlyContribDelta: +300,
+        monthlyExpenseDelta: -300,
+        cashImpact: 0,
+        note: 'Split the rent, invest the savings. Less privacy, more compounding.',
+      },
+      {
+        label: 'Move somewhere cheaper',
+        emoji: '📦',
+        monthlyContribDelta: +400,
+        monthlyExpenseDelta: -400,
+        cashImpact: -2000,
+        note: '$2,000 to move. Then $400/mo more to invest going forward.',
+      },
+    ],
   },
   {
     year: 4,
-    scenario: "You're getting married. The wedding will cost $15,000. You're covering it from your savings.",
-    prompt: 'New monthly investment amount while saving for the wedding:',
-    deductLumpSum: 15000,
+    title: 'Wedding',
+    scenario: "You're getting married. The average NYC wedding costs $44,000 (The Knot, 2023). What does yours look like?",
+    choices: [
+      {
+        label: 'City Hall + dinner ($500)',
+        emoji: '💍',
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: 0,
+        cashImpact: -500,
+        note: 'Just the two of you. Memorable and cheap.',
+      },
+      {
+        label: 'Modest ceremony ($14,000)',
+        emoji: '🥂',
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: 0,
+        cashImpact: -14000,
+        note: 'Close family, nice venue. NYC affordable end.',
+      },
+      {
+        label: 'Full NYC wedding ($44,000)',
+        emoji: '💒',
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: +800,
+        cashImpact: -15000,
+        note: '$15k from savings, $29k financed. ~$800/mo debt payments for 3 years.',
+      },
+    ],
+  },
+  {
+    year: 6,
+    title: 'Year-end bonus',
+    scenario: 'Strong performance review. Your company gives you a $4,500 bonus. It just hit your bank account.',
+    choices: [
+      {
+        label: 'Invest it all',
+        emoji: '🚀',
+        investLumpSum: 4500,
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: 0,
+        cashImpact: 0,
+        note: 'Straight into your investment portfolio.',
+      },
+      {
+        label: 'Invest half, spend half',
+        emoji: '✌️',
+        investLumpSum: 2250,
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: 0,
+        cashImpact: +2250,
+        note: '$2,250 invested, $2,250 stays in checking for a vacation or cushion.',
+      },
+      {
+        label: 'Spend it — you earned it',
+        emoji: '🎉',
+        investLumpSum: 0,
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: 0,
+        cashImpact: +4500,
+        note: 'Goes to a vacation, new gear, experiences. Fully enjoyed.',
+      },
+    ],
   },
   {
     year: 7,
-    scenario: "Baby on the way. Infant childcare in your city: $2,800/mo. Your monthly budget just got squeezed.",
-    prompt: 'New monthly investment amount:',
-    deductLumpSum: 0,
+    title: 'Baby! Childcare decision',
+    scenario: 'Baby arrived. You\'re thrilled. Also: infant care in NYC runs $2,800/mo. What\'s the plan?',
+    choices: [
+      {
+        label: 'Family helps — free care',
+        emoji: '👴👵',
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: 0,
+        cashImpact: 0,
+        note: 'Grandparents step in. Huge financial advantage — not everyone has this option.',
+      },
+      {
+        label: 'Professional daycare ($2,800/mo)',
+        emoji: '🏫',
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: +2800,
+        cashImpact: -3200,
+        note: '$3,200 upfront (deductible + setup), then $2,800/mo. Budget gets very tight.',
+      },
+    ],
+  },
+  {
+    year: 9,
+    title: 'Promotion',
+    scenario: "You've been doing great work. New title, new salary — $15,000/yr more. That's ~$300/mo more take-home after taxes.",
+    choices: [
+      {
+        label: 'Invest the full raise',
+        emoji: '📈',
+        monthlyContribDelta: +300,
+        monthlyExpenseDelta: 0,
+        cashImpact: 0,
+        note: 'Lifestyle stays the same. The whole raise compounds.',
+      },
+      {
+        label: 'Invest half, live a little better',
+        emoji: '⚖️',
+        monthlyContribDelta: +150,
+        monthlyExpenseDelta: +150,
+        cashImpact: 0,
+        note: 'Nicer dinners, a little breathing room — and $150/mo more invested.',
+      },
+      {
+        label: 'You\'ve been grinding — upgrade your life',
+        emoji: '🌟',
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: +300,
+        cashImpact: 0,
+        note: 'The full raise goes to a nicer apartment, better restaurants. You earned it.',
+      },
+    ],
   },
   {
     year: 10,
-    scenario: 'Promotion. Your salary increases by $15,000/yr — about $300/mo more after taxes.',
-    prompt: 'New monthly investment amount:',
-    deductLumpSum: 0,
+    title: 'School choice',
+    scenario: 'Your kid is approaching school age. You\'re in a neighborhood with a decent public school. Private school is also an option.',
+    choices: [
+      {
+        label: 'Public school (free)',
+        emoji: '🏫',
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: 0,
+        cashImpact: 0,
+        note: 'NYC public schools vary. Yours is solid. $0/mo.',
+      },
+      {
+        label: 'Private school ($1,500/mo)',
+        emoji: '📚',
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: +1500,
+        cashImpact: 0,
+        note: '$1,500/mo, for potentially 12 years. Real families make this choice every day.',
+      },
+    ],
+  },
+  {
+    year: 11,
+    title: 'Annual vacation',
+    scenario: 'You have 2 weeks of PTO. Your family has been talking about a trip. Where are you going?',
+    choices: [
+      {
+        label: 'Staycation — NYC has plenty',
+        emoji: '🗽',
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: 0,
+        cashImpact: -500,
+        note: 'Day trips, local spots. Still costs money, just far less.',
+      },
+      {
+        label: 'Domestic trip ($2,500)',
+        emoji: '🏔️',
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: 0,
+        cashImpact: -2500,
+        note: 'Florida, California, a national park. Real memories.',
+      },
+      {
+        label: 'International trip ($6,000)',
+        emoji: '🌍',
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: 0,
+        cashImpact: -6000,
+        note: 'Europe, Japan, Southeast Asia. Worth it — and genuinely expensive.',
+      },
+    ],
+  },
+  {
+    year: 13,
+    title: '"Can\'t-miss" investment tip',
+    scenario: 'A friend is raving about a sector everyone\'s piling into — they\'re up 40% already. "You HAVE to get in before it\'s too late."',
+    choices: [
+      {
+        label: 'Skip it — stay in index fund',
+        emoji: '🧘',
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: 0,
+        cashImpact: 0,
+        note: 'You\'ve heard this before. Time in market beats timing the market.',
+      },
+      {
+        label: 'Put $8,000 into the tip',
+        emoji: '🎲',
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: 0,
+        cashImpact: -8000,
+        lumpSumLoss: true,
+        note: 'You pull $8,000 from savings. The sector collapses over the next 4 years. You lose it all.',
+      },
+    ],
   },
   {
     year: 14,
-    scenario: "Your kids are in school now. That $2,800/mo childcare bill is gone. You have real breathing room for the first time in years.",
-    prompt: 'New monthly investment amount:',
-    deductLumpSum: 0,
+    title: 'Kids in school — breathing room',
+    scenario: "Your kids are in school full-time. The childcare intensity has eased. You have more breathing room. What do you do with it?",
+    choices: [
+      {
+        label: 'Max out investing',
+        emoji: '🚀',
+        monthlyContribDelta: +500,
+        monthlyExpenseDelta: 0,
+        cashImpact: 0,
+        note: 'You\'ve been squeezed for years. Now you make up for lost time.',
+      },
+      {
+        label: 'Invest more and live better',
+        emoji: '⚖️',
+        monthlyContribDelta: +200,
+        monthlyExpenseDelta: +200,
+        cashImpact: 0,
+        note: '$200/mo more invested, $200/mo more to enjoy.',
+      },
+      {
+        label: 'Take it easy — keep current pace',
+        emoji: '😌',
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: 0,
+        cashImpact: 0,
+        note: 'You\'ve been grinding. Rest and maintain.',
+      },
+    ],
+  },
+  {
+    year: 15,
+    title: 'Aging parent needs help',
+    scenario: "Your parent is struggling to cover their living expenses. What's your response?",
+    choices: [
+      {
+        label: 'Send $400/mo to help',
+        emoji: '❤️',
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: +400,
+        cashImpact: 0,
+        note: 'It\'s the right thing. $400/mo less available to invest.',
+      },
+      {
+        label: 'One-time help ($1,500)',
+        emoji: '🤲',
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: 0,
+        cashImpact: -1500,
+        note: 'Help them get situated — moving, paperwork, setup costs. Your monthly budget is unchanged.',
+      },
+      {
+        label: 'Not able to help right now',
+        emoji: '🤷',
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: 0,
+        cashImpact: 0,
+        note: 'This is real for many families. No change to your finances.',
+      },
+    ],
+  },
+  {
+    year: 16,
+    title: 'Lifestyle check-in',
+    scenario: 'The market has been great. Your portfolio is growing. You\'ve been living the same lifestyle for years — and your friends are upgrading.',
+    choices: [
+      {
+        label: 'Stay put — keep investing',
+        emoji: '🧘',
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: 0,
+        cashImpact: 0,
+        note: 'Discipline. You know what the numbers say. You stay the course.',
+      },
+      {
+        label: 'Upgrade a bit (+$400/mo)',
+        emoji: '🏙️',
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: +400,
+        cashImpact: 0,
+        note: 'Nicer apartment, better restaurants. You\'ve earned some of it.',
+      },
+      {
+        label: 'Downgrade and invest more',
+        emoji: '💪',
+        monthlyContribDelta: +400,
+        monthlyExpenseDelta: -400,
+        cashImpact: 0,
+        note: 'Move cheaper, invest the savings. Sprint to the finish.',
+      },
+    ],
+  },
+  {
+    year: 18,
+    title: 'Remote work opportunity',
+    scenario: "Your company went fully remote after the pandemic. You could stay in NYC or move anywhere. Austin, TX: rent $1,600/mo vs. your NYC $2,200/mo.",
+    choices: [
+      {
+        label: 'Stay in NYC',
+        emoji: '🗽',
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: 0,
+        cashImpact: 0,
+        note: 'It\'s home. No change.',
+      },
+      {
+        label: 'Move — save $600/mo',
+        emoji: '📦',
+        monthlyContribDelta: +600,
+        monthlyExpenseDelta: -600,
+        cashImpact: -3500,
+        note: '$3,500 to move. Then $600/mo more to invest for the final 2 years.',
+      },
+    ],
   },
 ];
 
