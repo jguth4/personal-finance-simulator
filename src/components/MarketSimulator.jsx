@@ -40,7 +40,10 @@ function computeChoiceImpact(choice, yearsLeft) {
   const contribDelta    = choice.monthlyContribDelta ?? 0;
   const investLumpSum   = choice.investLumpSum ?? 0;
 
+  const loanAmount = choice.loanAmount ?? 0;
+
   if (cashImpact < 0)   cost    += Math.abs(cashImpact) * fvLump;
+  if (loanAmount > 0)   cost    += loanAmount * fvLump;
   if (expDelta > 0)     cost    += expDelta * 12 * fvAnnuity;
   if (contribDelta < 0) cost    += Math.abs(contribDelta) * 12 * fvAnnuity;
   if (expDelta < 0)     benefit += Math.abs(expDelta) * 12 * fvAnnuity;
@@ -56,7 +59,7 @@ const ASSET_LABELS = {
   stocks:  'Individual stocks',
   bonds:   'Bond index',
   gold:    'Gold',
-  cash:    'Cash / HYSA',
+  cash:    'High-Yield Savings (HYSA)',
 };
 
 const ASSET_DESCRIPTORS = {
@@ -65,7 +68,7 @@ const ASSET_DESCRIPTORS = {
   stocks:  'You pick 4–5 companies. Outcomes vary wildly. Companies can go bankrupt.',
   bonds:   'Government & corporate debt. ~4–5%/yr, lower volatility than stocks.',
   gold:    'Price appreciation only — no dividends. Volatile. No income.',
-  cash:    'High-yield savings. Safe, but inflation slowly erodes purchasing power.',
+  cash:    'High-yield savings account. Safe, but inflation slowly erodes purchasing power. This is where most Americans keep their money.',
 };
 
 const ASSET_COLORS = {
@@ -133,7 +136,7 @@ function checkBankruptcies(prevAssets, year, stockPicks) {
 function SetupScreen({ initialSurplus, onStart }) {
   const defaultMonthly = Math.min(initialSurplus ?? 300, MAX_MONTHLY_INVESTABLE);
   const [monthly, setMonthly]     = useState(defaultMonthly);
-  const [alloc, setAlloc]         = useState({ vtsax: 0, advisor: 0, stocks: 0, bonds: 0, gold: 0, cash: 0 });
+  const [alloc, setAlloc]         = useState({ vtsax: 0, advisor: 0, stocks: 0, bonds: 0, gold: 0, cash: 100 });
   const [stockPicks, setStockPicks] = useState([]);
 
   const total       = Object.values(alloc).reduce((s, v) => s + v, 0);
@@ -194,7 +197,7 @@ function SetupScreen({ initialSurplus, onStart }) {
             {remaining === 0 ? '✓ 100% allocated' : remaining > 0 ? `${remaining}% remaining` : `${-remaining}% over`}
           </span>
         </div>
-        <p className="text-xs text-slate-500">Must total exactly 100%. Set to 0% to exclude an asset.</p>
+        <p className="text-xs text-slate-500">Must total exactly 100%. Default is 100% HYSA — how most Americans actually keep their money. To invest, redistribute to other assets.</p>
         {Object.entries(ASSET_LABELS).map(([id, label]) => (
           <div key={id}>
             <div className="flex items-start justify-between mb-1">
@@ -333,7 +336,8 @@ function CrashOverlay({ event, byAsset, alloc, stockPicks, onConfirm }) {
         </div>
         <div>
           <p className="text-sm font-semibold text-slate-800 mb-1">What do you want to do?</p>
-          <p className="text-xs text-slate-500 mb-3">Drag to sell a % of any asset and move it to cash. Leave all at 0% to hold everything.</p>
+          <p className="text-xs text-slate-500 mb-1">Drag to sell a % of any asset and move it to High-Yield Savings (HYSA). Leave all at 0% to hold everything.</p>
+          <p className="text-xs text-slate-400 mb-3 italic">Note: HYSA is a savings account within your investment portfolio — not the same as your checking account.</p>
           {sellableAssets.map(([id, label]) => {
             const val     = currentValues[id] ?? 0;
             const pct     = exitPct[id] ?? 0;
@@ -391,7 +395,7 @@ function CrashOverlay({ event, byAsset, alloc, stockPicks, onConfirm }) {
 
 // ── Lifestyle overlay (choice cards with opportunity cost) ────────────────────
 
-function LifestyleOverlay({ event, cashBalance, creditDebt, monthlyContrib, currentYear, onConfirm }) {
+function LifestyleOverlay({ event, cashBalance, creditDebt, monthlyContrib, currentYear, hadDaycare, onConfirm }) {
   const yearsLeft = TOTAL_YEARS - currentYear;
 
   return (
@@ -403,6 +407,13 @@ function LifestyleOverlay({ event, cashBalance, creditDebt, monthlyContrib, curr
           <h3 className="text-lg font-bold text-slate-900 mt-0.5">{event.title}</h3>
           <p className="text-sm text-slate-600 mt-1">{event.scenario}</p>
         </div>
+
+        {/* Daycare reversal notice (Year 14) */}
+        {event.year === 14 && hadDaycare && (
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2">
+            <p className="text-xs text-emerald-700">✓ Your $2,800/mo childcare cost has been removed from your expenses.</p>
+          </div>
+        )}
 
         {/* Cash snapshot */}
         <div className="flex gap-4 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2">
@@ -499,6 +510,105 @@ function BankruptcyOverlay({ bankruptcies, onConfirm }) {
           className="w-full bg-slate-800 hover:bg-slate-900 text-white font-semibold py-3 rounded-xl text-sm">
           Continue →
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Review finances modal ─────────────────────────────────────────────────────
+
+function ReviewModal({ monthlyContrib, monthlyExpenses, cashDisplay, onUpdate, onClose }) {
+  const [newMonthly, setNewMonthly] = useState(monthlyContrib);
+
+  const monthlyBuffer = MONTHLY_INCOME - monthlyExpenses - newMonthly;
+  const annualInterest = cashDisplay.debt > 0 ? Math.round(cashDisplay.debt * 0.24) : 0;
+  const draining = monthlyBuffer < 0;
+  const EMERGENCY_CAP = 6 * MONTHLY_BASE_EXPENSES_DEFAULT;
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4">
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-bold text-slate-900">Review finances</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-2xl leading-none">×</button>
+        </div>
+
+        {/* Budget breakdown */}
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Monthly cash flow</p>
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-600">Take-home income</span>
+            <span className="font-semibold text-slate-800">{fmtFull(MONTHLY_INCOME)}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-600">Fixed expenses</span>
+            <span className="font-semibold text-red-600">−{fmtFull(monthlyExpenses)}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-600">Monthly investing</span>
+            <span className="font-semibold text-indigo-600">−{fmtFull(newMonthly)}</span>
+          </div>
+          <div className={`flex justify-between text-sm border-t border-slate-200 pt-2 mt-1`}>
+            <span className="font-semibold text-slate-700">Monthly buffer</span>
+            <span className={`font-bold ${monthlyBuffer >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+              {monthlyBuffer >= 0 ? `+${fmtFull(monthlyBuffer)}/mo` : `−${fmtFull(Math.abs(monthlyBuffer))}/mo`}
+            </span>
+          </div>
+          {!draining && cashDisplay.debt === 0 && (
+            <p className="text-xs text-slate-400 mt-1">
+              {cashDisplay.balance >= EMERGENCY_CAP
+                ? 'Checking at 6-month cap. Surplus absorbed into lifestyle.'
+                : `Checking builds to $${(EMERGENCY_CAP / 1000).toFixed(0)}k cap, then stabilizes.`}
+            </p>
+          )}
+        </div>
+
+        {/* Credit card warning */}
+        {cashDisplay.debt > 0 && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-3 space-y-1">
+            <div className="flex justify-between text-sm">
+              <span className="text-red-700 font-semibold">Credit card debt</span>
+              <span className="font-bold text-red-700">{fmtFull(Math.round(cashDisplay.debt))}</span>
+            </div>
+            <p className="text-xs text-red-600">
+              +{fmtFull(annualInterest)}/yr interest at 24% APR.
+              {monthlyBuffer > 0
+                ? ` Surplus paying down debt — clears in ~${Math.ceil(cashDisplay.debt / (monthlyBuffer * 12))} yr.`
+                : ' No surplus to pay it down.'}
+            </p>
+          </div>
+        )}
+
+        {/* Adjust contribution */}
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-slate-800">Adjust monthly investment</label>
+          <div className="flex items-center gap-3">
+            <input type="range" min={0} max={MAX_MONTHLY_INVESTABLE} step={25} value={newMonthly}
+              onChange={e => setNewMonthly(Number(e.target.value))}
+              className="flex-1 accent-indigo-600" />
+            <span className="text-sm font-bold text-indigo-700 w-20 text-right">{fmtFull(newMonthly)}/mo</span>
+          </div>
+          <div className="flex justify-between text-xs text-slate-400">
+            <span>$0/mo</span>
+            <span>{fmtFull(MAX_MONTHLY_INVESTABLE)}/mo max</span>
+          </div>
+          {draining && (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
+              ⚠️ Investing more than your surplus — checking will drain toward zero.
+            </p>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          <button onClick={onClose}
+            className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-3 rounded-xl text-sm transition-colors">
+            Cancel
+          </button>
+          <button onClick={() => { onUpdate(newMonthly); onClose(); }}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl text-sm transition-colors">
+            Update →
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -761,9 +871,12 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
   const [lifestyleChoices, setLifestyleChoices] = useState([]);
 
   // Cash account — use refs for synchronous computation in interval, state for display
-  const cashRef      = useRef(3000);
-  const creditRef    = useRef(0);
-  const expensesRef  = useRef(MONTHLY_BASE_EXPENSES_DEFAULT);
+  const cashRef        = useRef(3000);
+  const creditRef      = useRef(0);
+  const expensesRef    = useRef(MONTHLY_BASE_EXPENSES_DEFAULT);
+  const hadDaycareRef  = useRef(false); // true if student chose paid daycare at Year 7
+
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [cashDisplay, setCashDisplay] = useState({ balance: 3000, debt: 0 });
   const [monthlyExpenses, setMonthlyExpenses] = useState(MONTHLY_BASE_EXPENSES_DEFAULT);
 
@@ -801,19 +914,27 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
         const annualNet = (MONTHLY_INCOME - expensesRef.current) * 12 - monthlyContrib * 12;
         let newCashBal  = cashRef.current + annualNet;
 
-        // Credit card interest
+        // Credit card interest (charged on outstanding balance)
         if (creditRef.current > 0) {
           const interest = Math.round(creditRef.current * 0.24);
           newCashBal -= interest;
         }
 
         if (newCashBal < 0) {
+          // Deficit: goes to credit card debt
           creditRef.current += Math.abs(newCashBal);
-          cashRef.current    = 0;
-        } else {
-          cashRef.current   = newCashBal;
-          creditRef.current = Math.max(0, creditRef.current - newCashBal * 0.1); // slow debt paydown
+          newCashBal = 0;
+        } else if (creditRef.current > 0) {
+          // Surplus + debt: pay off all debt possible (debt comes before checking)
+          const payment = Math.min(newCashBal, creditRef.current);
+          creditRef.current -= payment;
+          newCashBal -= payment;
         }
+
+        // Cap checking at 6-month emergency fund target; excess absorbed as lifestyle spending
+        const EMERGENCY_FUND_CAP = 6 * MONTHLY_BASE_EXPENSES_DEFAULT; // $17,400
+        if (newCashBal > EMERGENCY_FUND_CAP) newCashBal = EMERGENCY_FUND_CAP;
+        cashRef.current = newCashBal;
 
         // Check events (against prev state for bankruptcy check)
         const nextYear = y + 1;
@@ -831,6 +952,11 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
           setPhase('PAUSED_MARKET');
         } else if (lfe) {
           clearInterval(intervalRef.current);
+          // Year 14: auto-reverse daycare costs if applicable
+          if (lfe.year === 14 && hadDaycareRef.current) {
+            expensesRef.current = Math.max(MONTHLY_BASE_EXPENSES_DEFAULT, expensesRef.current - 2800);
+            setMonthlyExpenses(prev => Math.max(MONTHLY_BASE_EXPENSES_DEFAULT, prev - 2800));
+          }
           setActiveEvent(lfe);
           setPhase('PAUSED_LIFESTYLE');
         } else if (nextYear >= TOTAL_YEARS) {
@@ -866,6 +992,7 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
     cashRef.current       = 3000;
     creditRef.current     = 0;
     expensesRef.current   = MONTHLY_BASE_EXPENSES_DEFAULT;
+    hadDaycareRef.current = false;
 
     setByAsset(initial);
     setMonthlyContrib(monthly);
@@ -877,6 +1004,7 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
     setCashDisplay({ balance: 3000, debt: 0 });
     setMonthlyExpenses(MONTHLY_BASE_EXPENSES_DEFAULT);
     setSimPaused(false);
+    setReviewOpen(false);
     setPhase('RUNNING');
   }
 
@@ -886,6 +1014,7 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
     cashRef.current       = 3000;
     creditRef.current     = 0;
     expensesRef.current   = MONTHLY_BASE_EXPENSES_DEFAULT;
+    hadDaycareRef.current = false;
 
     setPhase('SETUP');
     setConfig(null);
@@ -900,6 +1029,7 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
     setCashDisplay({ balance: 3000, debt: 0 });
     setMonthlyExpenses(MONTHLY_BASE_EXPENSES_DEFAULT);
     setSimPaused(false);
+    setReviewOpen(false);
   }
 
   function handleCrashConfirm({ moves, newByAsset }) {
@@ -915,6 +1045,11 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
     const yearsLeft = TOTAL_YEARS - currentYear;
     const { cost, benefit } = computeChoiceImpact(choice, yearsLeft);
 
+    // Track daycare choice (Year 7)
+    if (activeEvent?.year === 7 && (choice.monthlyExpenseDelta ?? 0) >= 2800) {
+      hadDaycareRef.current = true;
+    }
+
     // Apply cash impact
     if (choice.cashImpact) {
       const newBal = cashRef.current + choice.cashImpact;
@@ -924,6 +1059,12 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
       } else {
         cashRef.current = newBal;
       }
+      setCashDisplay({ balance: cashRef.current, debt: creditRef.current });
+    }
+
+    // Apply loan amount directly to credit card debt (e.g. financed wedding)
+    if (choice.loanAmount > 0) {
+      creditRef.current += choice.loanAmount;
       setCashDisplay({ balance: cashRef.current, debt: creditRef.current });
     }
 
@@ -1007,10 +1148,12 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
     );
   }
 
-  const currentTotal = totalPortfolio(byAsset);
-  const vtsaxCurrent = vtsaxBenchRef.current;
-  const yearContext  = YEAR_CONTEXT[currentYear] ?? null;
-  const overInvesting = monthlyContrib > (MONTHLY_INCOME - expensesRef.current);
+  const currentTotal   = totalPortfolio(byAsset);
+  const vtsaxCurrent   = vtsaxBenchRef.current;
+  const yearContext    = YEAR_CONTEXT[currentYear] ?? null;
+  const overInvesting  = monthlyContrib > (MONTHLY_INCOME - expensesRef.current);
+  const monthlyBuffer  = MONTHLY_INCOME - expensesRef.current - monthlyContrib;
+  const EMERGENCY_CAP  = 6 * MONTHLY_BASE_EXPENSES_DEFAULT;
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-5">
@@ -1031,6 +1174,7 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
           creditDebt={cashDisplay.debt}
           monthlyContrib={monthlyContrib}
           currentYear={currentYear}
+          hadDaycare={hadDaycareRef.current}
           onConfirm={handleLifestyleConfirm}
         />
       )}
@@ -1038,6 +1182,17 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
         <BankruptcyOverlay
           bankruptcies={pendingBankruptcies}
           onConfirm={handleBankruptcyConfirm}
+        />
+      )}
+
+      {/* Review modal */}
+      {reviewOpen && (
+        <ReviewModal
+          monthlyContrib={monthlyContrib}
+          monthlyExpenses={monthlyExpenses}
+          cashDisplay={cashDisplay}
+          onUpdate={setMonthlyContrib}
+          onClose={() => setReviewOpen(false)}
         />
       )}
 
@@ -1051,6 +1206,11 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
             <p className="text-xs text-slate-400">·</p>
             <p className="text-xs text-slate-500">{fmtFull(monthlyExpenses)}/mo expenses</p>
           </div>
+          <button
+            onClick={() => setReviewOpen(true)}
+            className="mt-2 text-xs font-semibold text-indigo-600 hover:text-indigo-800 underline underline-offset-2">
+            Review finances →
+          </button>
         </div>
         <div className="text-right">
           <div className="flex justify-end gap-6">
@@ -1068,8 +1228,14 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
               <p className={`text-xl font-bold ${cashDisplay.balance < 1000 ? 'text-amber-700' : 'text-slate-700'}`}>
                 {fmt(cashDisplay.balance)}
               </p>
-              {cashDisplay.debt > 0 && (
+              {cashDisplay.debt > 0 ? (
                 <p className="text-xs font-semibold text-red-600">+{fmt(cashDisplay.debt)} CC debt</p>
+              ) : cashDisplay.balance >= EMERGENCY_CAP ? (
+                <p className="text-xs text-emerald-600">At 6-mo buffer cap</p>
+              ) : monthlyBuffer < 0 ? (
+                <p className="text-xs text-amber-600">Draining {fmtFull(Math.abs(monthlyBuffer))}/mo</p>
+              ) : (
+                <p className="text-xs text-slate-400">+{fmtFull(monthlyBuffer)}/mo surplus</p>
               )}
             </div>
           </div>
