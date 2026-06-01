@@ -67,20 +67,20 @@ export const MARKET_EVENTS = [
   {
     year: 5, // 2008
     severity: 'severe',
-    headline: 'Housing prices have collapsed. Major banks are failing. Markets drop 37% in 12 months.',
-    subtext: 'Experts are calling it the worst financial crisis since the Great Depression. Your portfolio just lost significant value.',
+    headline: 'A financial crisis is beginning. Housing prices are collapsing. Major banks are in trouble.',
+    subtext: 'Markets are starting to drop sharply. No one knows how far this goes. What do you do?',
   },
   {
     year: 17, // 2020
     severity: 'severe',
-    headline: 'A global pandemic has shut down the economy. Markets drop 34% in just 90 days.',
-    subtext: 'The fastest crash in stock market history. No one knows how long the shutdown will last.',
+    headline: 'A global pandemic is shutting down the economy. Markets are in free fall.',
+    subtext: 'The fastest crash in stock market history is unfolding. No one knows how long this lasts. What do you do?',
   },
   {
     year: 19, // 2022
     severity: 'moderate',
-    headline: 'Inflation hits a 40-year high. The Fed raises interest rates aggressively. Stocks AND bonds fall simultaneously.',
-    subtext: 'Unusually, there is nowhere to hide — both stocks and bonds are down this year.',
+    headline: 'Inflation is at a 40-year high. The Fed is raising rates aggressively. Stocks AND bonds are falling.',
+    subtext: 'Unusually, there is nowhere to hide this year. What do you do?',
   },
 ];
 
@@ -105,6 +105,7 @@ export const LIFESTYLE_EVENTS = [
   {
     year: 2,
     title: 'New job offer',
+    prepTip: 'A job offer may be coming. Think about what you\'d do with extra income — invest it, spend it, or split it?',
     scenario: 'You got recruited for a better position. Salary jumps $8,000/yr — about $200/mo more after NYC taxes. What do you do with the raise?',
     choices: [
       {
@@ -136,6 +137,7 @@ export const LIFESTYLE_EVENTS = [
   {
     year: 3,
     title: 'Rent increase',
+    prepTip: 'Your lease is up for renewal soon. Building your checking balance now gives you options — move, get a roommate, or pay the increase.',
     scenario: 'Lease renewal time. Your landlord wants $350/mo more — or you can make a change.',
     choices: [
       {
@@ -167,6 +169,7 @@ export const LIFESTYLE_EVENTS = [
   {
     year: 4,
     title: 'Wedding',
+    prepTip: 'Wedding planning ahead. The average NYC wedding costs $44,000. Your checking balance now determines your options — City Hall is always on the table.',
     scenario: "You're getting married. The average NYC wedding costs $44,000 (The Knot, 2023). What does yours look like?",
     choices: [
       {
@@ -199,6 +202,7 @@ export const LIFESTYLE_EVENTS = [
   {
     year: 6,
     title: 'Year-end bonus',
+    prepTip: 'Performance review season is coming. A bonus may be on the way — start thinking about whether to invest it, save it, or spend it.',
     scenario: 'Strong performance review. Your company gives you a $4,500 bonus. It just hit your bank account.',
     choices: [
       {
@@ -233,6 +237,7 @@ export const LIFESTYLE_EVENTS = [
   {
     year: 7,
     title: 'Baby! Childcare decision',
+    prepTip: 'Your family is about to grow. NYC infant care runs $2,800/mo. Do you have family who could help? Now is the time to figure it out.',
     scenario: 'Baby arrived. You\'re thrilled. Also: infant care in NYC runs $2,800/mo. What\'s the plan?',
     choices: [
       {
@@ -256,6 +261,7 @@ export const LIFESTYLE_EVENTS = [
   {
     year: 9,
     title: 'Promotion',
+    prepTip: 'A promotion may be coming. Think now about your priorities — will you invest the raise, upgrade your lifestyle, or split it?',
     scenario: "You've been doing great work. New title, new salary — $15,000/yr more. That's ~$300/mo more take-home after taxes.",
     choices: [
       {
@@ -287,6 +293,7 @@ export const LIFESTYLE_EVENTS = [
   {
     year: 10,
     title: 'School choice',
+    prepTip: 'School-age decisions ahead. Private school in NYC runs $1,500–$2,500/mo. Start thinking about what matters most to your family.',
     scenario: 'Your kid is approaching school age. You\'re in a neighborhood with a decent public school. Private school is also an option.',
     choices: [
       {
@@ -310,6 +317,7 @@ export const LIFESTYLE_EVENTS = [
   {
     year: 11,
     title: 'Annual vacation',
+    prepTip: 'Vacation season coming. Domestic trips run $2,500, international $6,000+. Decide your budget now — or it decides itself.',
     scenario: 'You have 2 weeks of PTO. Your family has been talking about a trip. Where are you going?',
     choices: [
       {
@@ -341,6 +349,7 @@ export const LIFESTYLE_EVENTS = [
   {
     year: 13,
     title: '"Can\'t-miss" investment tip',
+    prepTip: 'Stay alert — someone may pitch you a "can\'t-miss" investment. The index fund has no hype. Time in market beats timing the market.',
     scenario: 'A friend is raving about a sector everyone\'s piling into — they\'re up 40% already. "You HAVE to get in before it\'s too late."',
     choices: [
       {
@@ -365,6 +374,7 @@ export const LIFESTYLE_EVENTS = [
   {
     year: 14,
     title: 'Kids in school — breathing room',
+    prepTip: 'Your kids will be in school soon. Childcare costs ease up — start thinking about how to use that breathing room.',
     scenario: "Your kids are now in school full-time. A lot has changed since Year 7. What do you do with your finances now?",
     choices: [
       {
@@ -396,6 +406,7 @@ export const LIFESTYLE_EVENTS = [
   {
     year: 15,
     title: 'Aging parent needs help',
+    prepTip: 'Family support requests may be coming. Check your financial cushion — having a buffer makes generosity easier.',
     scenario: "Your parent is struggling to cover their living expenses. What's your response?",
     choices: [
       {
@@ -427,6 +438,7 @@ export const LIFESTYLE_EVENTS = [
   {
     year: 16,
     title: 'Lifestyle check-in',
+    prepTip: 'Midpoint check-in coming. Your friends may be upgrading — bigger apartments, nicer things. The question is whether you follow.',
     scenario: 'The market has been great. Your portfolio is growing. You\'ve been living the same lifestyle for years — and your friends are upgrading.',
     choices: [
       {
@@ -458,6 +470,7 @@ export const LIFESTYLE_EVENTS = [
   {
     year: 18,
     title: 'Remote work opportunity',
+    prepTip: 'Remote work may change your cost structure. NYC rent vs. Austin, TX rent: $600/mo difference. Think about whether location still matters to you.',
     scenario: "Your company went fully remote after the pandemic. You could stay in NYC or move anywhere. Austin, TX: rent $1,600/mo vs. your NYC $2,200/mo.",
     choices: [
       {
