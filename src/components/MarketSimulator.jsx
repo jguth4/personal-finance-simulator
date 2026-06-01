@@ -50,12 +50,12 @@ function computeChoiceImpact(choice, yearsLeft) {
 }
 
 const ASSET_LABELS = {
+  cash:    'High-Yield Savings (HYSA)',
   vtsax:   'Index fund',
   advisor: 'Financial advisor',
   stocks:  'Individual stocks',
   bonds:   'Bond index',
   gold:    'Gold',
-  cash:    'High-Yield Savings (HYSA)',
 };
 
 const ASSET_DESCRIPTORS = {
@@ -201,7 +201,11 @@ function SetupScreen({ initialSurplus, onStart }) {
             {remaining === 0 ? '✓ 100% allocated' : remaining > 0 ? `${remaining}% remaining` : `${-remaining}% over`}
           </span>
         </div>
-        <p className="text-xs text-slate-500">Must total exactly 100%. Default is 100% HYSA — how most Americans actually keep their money. To invest, redistribute to other assets.</p>
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 space-y-1">
+          <p className="text-xs font-semibold text-emerald-900">💡 Why does this start at 100% savings?</p>
+          <p className="text-xs text-emerald-800">Your paycheck lands in a bank account. Most Americans never move it — not because they can't, but because investing requires a conscious choice. This simulation starts you there, same as real life.</p>
+          <p className="text-xs text-emerald-700 font-medium">To invest: drag the HYSA slider down and allocate to other assets.</p>
+        </div>
         {Object.entries(ASSET_LABELS).map(([id, label]) => (
           <div key={id}>
             <div className="flex items-start justify-between mb-1">
@@ -733,6 +737,105 @@ function SimTooltip({ active, payload, label }) {
   );
 }
 
+// ── Year summary card ─────────────────────────────────────────────────────────
+
+function YearSummaryCard({ summary, onContinue }) {
+  const { year, portfolioEnd, portfolioStart, vtsaxEnd, cashEnd, debtEnd, context, nextEvent, initialMonthly } = summary;
+
+  if (year === 0) {
+    return (
+      <div className="bg-emerald-50 border-2 border-emerald-300 rounded-xl p-5 space-y-3">
+        <p className="text-sm font-bold text-emerald-900">You're set up. Let's see what 20 years looks like.</p>
+        <div className="grid grid-cols-2 gap-3 text-xs">
+          <div>
+            <p className="text-slate-500">Starting checking account</p>
+            <p className="font-bold text-slate-800">$3,000</p>
+          </div>
+          <div>
+            <p className="text-slate-500">Monthly investing</p>
+            <p className="font-bold text-indigo-700">{fmtFull(initialMonthly ?? 300)}/mo</p>
+          </div>
+        </div>
+        <p className="text-xs text-emerald-700">Life events will pause the simulation. Market crashes will test your resolve. You decide when to advance — one year at a time.</p>
+        <button onClick={onContinue}
+          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl text-sm transition-colors">
+          Start Year 1 →
+        </button>
+      </div>
+    );
+  }
+
+  const yearChange    = portfolioEnd - portfolioStart;
+  const vsVtsax       = portfolioEnd - vtsaxEnd;
+  const isCrashYear   = MARKET_EVENTS.some(e => e.year === year);
+  const realHeadline  = REAL_HEADLINES.find(h => h.year === year);
+
+  return (
+    <div className={`border rounded-xl p-5 space-y-3 ${isCrashYear ? 'bg-red-50 border-red-200' : 'bg-slate-50 border-slate-200'}`}>
+      <div className="flex justify-between items-start">
+        <div>
+          <p className={`text-xs font-bold uppercase tracking-widest ${isCrashYear ? 'text-red-600' : 'text-slate-400'}`}>
+            Year {year} of {TOTAL_YEARS} — complete
+          </p>
+        </div>
+        <p className={`text-sm font-bold ${yearChange >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+          {yearChange >= 0 ? '+' : ''}{fmt(yearChange)} this year
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+        <div>
+          <p className="text-slate-500">Portfolio</p>
+          <p className="font-bold text-indigo-700 text-base">{fmt(portfolioEnd)}</p>
+        </div>
+        <div>
+          <p className="text-slate-500">vs. VTSAX benchmark</p>
+          <p className={`font-bold text-base ${vsVtsax >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+            {vsVtsax >= 0 ? '+' : ''}{fmt(vsVtsax)}
+          </p>
+        </div>
+        <div>
+          <p className="text-slate-500">Checking account</p>
+          <p className={`font-semibold ${cashEnd < 1000 ? 'text-amber-600' : 'text-slate-700'}`}>{fmtFull(Math.round(cashEnd))}</p>
+        </div>
+        {debtEnd > 0 && (
+          <div>
+            <p className="text-red-500">CC Debt (24% APR)</p>
+            <p className="font-semibold text-red-700">{fmtFull(Math.round(debtEnd))}</p>
+          </div>
+        )}
+      </div>
+
+      {context && (
+        <p className="text-xs text-slate-500 italic border-t border-slate-200 pt-2">{context}</p>
+      )}
+
+      {realHeadline && (
+        <div className="bg-red-100 border border-red-300 rounded-lg px-3 py-2">
+          <p className="text-xs text-red-800">
+            This was <strong>{realHeadline.calYear}</strong>. The full story revealed at the end.
+          </p>
+        </div>
+      )}
+
+      {nextEvent && (
+        <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+          <span className="text-sm flex-shrink-0 mt-0.5">🔔</span>
+          <p className="text-xs text-amber-800">
+            <span className="font-semibold">Next year: {nextEvent.title}.</span>{' '}
+            {nextEvent.prepTip}
+          </p>
+        </div>
+      )}
+
+      <button onClick={onContinue}
+        className="w-full bg-slate-800 hover:bg-slate-900 text-white font-semibold py-3 rounded-xl text-sm transition-colors">
+        Continue to Year {year + 1} →
+      </button>
+    </div>
+  );
+}
+
 // ── Reveal screen ─────────────────────────────────────────────────────────────
 
 function RevealScreen({ history, finalPortfolio, alloc, stockPicks, panicMoves, initialMonthly, lifestyleChoices, finalCash, finalDebt, onReset }) {
@@ -968,14 +1071,17 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
   const [panicMoves, setPanicMoves]     = useState([]);
   const [pendingBankruptcies, setPendingBankruptcies] = useState([]);
   const [lifestyleChoices, setLifestyleChoices]       = useState([]);
+  const [yearSummary, setYearSummary]                 = useState(null);
 
-  // Refs — synchronous access inside setInterval callbacks
-  const cashRef                 = useRef(3000);
-  const creditRef               = useRef(0);
-  const expensesRef             = useRef(MONTHLY_BASE_EXPENSES_DEFAULT);
-  const hadDaycareRef           = useRef(false);
-  const monthlyContribRef       = useRef(300);      // source of truth for interval; state is for display
-  const debtInterventionFiredRef = useRef(false);   // only fire debt intervention once
+  // Refs — synchronous access inside computation loop and event handlers
+  const cashRef                  = useRef(3000);
+  const creditRef                = useRef(0);
+  const expensesRef              = useRef(MONTHLY_BASE_EXPENSES_DEFAULT);
+  const hadDaycareRef            = useRef(false);
+  const monthlyContribRef        = useRef(300);
+  const debtInterventionFiredRef = useRef(false);
+  const byAssetRef               = useRef({});
+  const prevYearTotalRef         = useRef(0);
 
   const [cashDisplay, setCashDisplay]       = useState({ balance: 3000, debt: 0 });
   const [monthlyExpenses, setMonthlyExpenses] = useState(MONTHLY_BASE_EXPENSES_DEFAULT);
@@ -983,137 +1089,138 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
   const vtsaxBenchRef = useRef(0);
   const cashBenchRef  = useRef(0);
 
-  const [simSpeed, setSimSpeed]   = useState(150); // ms per month
-  const [simPaused, setSimPaused] = useState(false);
-
-  const intervalRef = useRef(null);
-
-  // Keep monthlyContribRef in sync when state changes (e.g. after lifestyle events)
-  useEffect(() => { monthlyContribRef.current = monthlyContrib; }, [monthlyContrib]);
+  // Keep byAssetRef in sync with state
+  useEffect(() => { byAssetRef.current = byAsset; }, [byAsset]);
 
   function handleContribChange(val) {
-    monthlyContribRef.current = val; // instant — no interval restart
+    monthlyContribRef.current = val;
     setMonthlyContrib(val);
   }
 
-  function advanceOneMonth() {
-    if (!config) return;
-    const { alloc, stockPicks } = config;
-    const mc = monthlyContribRef.current;
+  // Synchronously computes 12 months starting from startMonth using refs.
+  // Batch-updates React state, then transitions to YEAR_SUMMARY (or REVEAL/PAUSED_DEBT_INTERVENTION).
+  function computeYearInternal(startMonth, cfg) {
+    const { alloc, stockPicks } = cfg;
+    const mc         = monthlyContribRef.current;
+    let assets       = byAssetRef.current;
+    const newHistory = [];
+    let debtCrossed  = false;
+    const prevTotal  = prevYearTotalRef.current;
 
-    setCurrentMonth(prevMonth => {
-      if (prevMonth >= TOTAL_MONTHS) return prevMonth;
+    for (let m = 0; m < 12; m++) {
+      const monthIdx = startMonth + m;
+      assets = computePortfolioAfterMonth(assets, alloc, mc, monthIdx, stockPicks);
+      const total = totalPortfolio(assets);
 
-      const yearIdx = Math.floor(prevMonth / 12); // 0-19
+      const monthlyNet = MONTHLY_INCOME - expensesRef.current - mc;
+      let newCash = cashRef.current + monthlyNet;
+      if (creditRef.current > 0) {
+        newCash -= Math.round(creditRef.current * 0.02);
+      }
+      if (newCash < 0) {
+        creditRef.current += Math.abs(newCash);
+        newCash = 0;
+      } else if (creditRef.current > 0) {
+        const payment = Math.min(newCash, creditRef.current);
+        creditRef.current -= payment;
+        newCash -= payment;
+      }
+      const EMERGENCY_CAP = 6 * MONTHLY_BASE_EXPENSES_DEFAULT;
+      if (newCash > EMERGENCY_CAP) newCash = EMERGENCY_CAP;
+      cashRef.current = newCash;
 
-      setByAsset(prev => {
-        const newAssets = computePortfolioAfterMonth(prev, alloc, mc, prevMonth, stockPicks);
-        const total     = totalPortfolio(newAssets);
+      if (creditRef.current > 5000 && !debtInterventionFiredRef.current) debtCrossed = true;
 
-        // Benchmarks (monthly rate)
-        const vtsaxAnnual = RETURNS.vtsax[yearIdx] ?? 0;
-        const cashAnnual  = RETURNS.cash[yearIdx]  ?? 0;
-        const vtsaxMonthly = Math.pow(1 + vtsaxAnnual, 1 / 12) - 1;
-        const cashMonthly  = Math.pow(1 + cashAnnual,  1 / 12) - 1;
-        const newVtsax = vtsaxBenchRef.current * (1 + vtsaxMonthly) + mc;
-        const newCash  = cashBenchRef.current  * (1 + cashMonthly)  + mc;
-        vtsaxBenchRef.current = newVtsax;
-        cashBenchRef.current  = newCash;
+      const yearIdx     = Math.floor(monthIdx / 12);
+      const vtsaxAnnual = RETURNS.vtsax[yearIdx] ?? 0;
+      const cashAnnual  = RETURNS.cash[yearIdx]  ?? 0;
+      vtsaxBenchRef.current = vtsaxBenchRef.current * (1 + Math.pow(1 + vtsaxAnnual, 1/12) - 1) + mc;
+      cashBenchRef.current  = cashBenchRef.current  * (1 + Math.pow(1 + cashAnnual,  1/12) - 1) + mc;
+      newHistory.push({ total, vtsaxBenchmark: vtsaxBenchRef.current, cashBenchmark: cashBenchRef.current });
+    }
 
-        setHistory(h => [...h, { total, vtsaxBenchmark: newVtsax, cashBenchmark: newCash }]);
+    byAssetRef.current = assets;
+    const endMonth = startMonth + 12;
+    const yearNum  = startMonth / 12 + 1;
 
-        // Monthly cash flow
-        const monthlyNet = MONTHLY_INCOME - expensesRef.current - mc;
-        let newCashBal   = cashRef.current + monthlyNet;
+    setByAsset(assets);
+    setCurrentMonth(endMonth);
+    setHistory(prev => [...prev, ...newHistory]);
+    setCashDisplay({ balance: cashRef.current, debt: creditRef.current });
 
-        // Credit card: 2%/month (24% APR ÷ 12)
-        if (creditRef.current > 0) {
-          const interest = Math.round(creditRef.current * 0.02);
-          newCashBal -= interest;
-        }
+    const nextLfe = LIFESTYLE_EVENTS.find(e => e.year === yearNum + 1) ?? null;
+    const summary = {
+      year:           yearNum,
+      portfolioEnd:   totalPortfolio(assets),
+      portfolioStart: prevTotal,
+      vtsaxEnd:       vtsaxBenchRef.current,
+      cashEnd:        cashRef.current,
+      debtEnd:        creditRef.current,
+      context:        YEAR_CONTEXT[yearNum] ?? null,
+      nextEvent:      nextLfe,
+    };
+    prevYearTotalRef.current = totalPortfolio(assets);
+    setYearSummary(summary);
 
-        if (newCashBal < 0) {
-          creditRef.current += Math.abs(newCashBal);
-          newCashBal = 0;
-        } else if (creditRef.current > 0) {
-          const payment = Math.min(newCashBal, creditRef.current);
-          creditRef.current -= payment;
-          newCashBal -= payment;
-        }
-
-        const EMERGENCY_FUND_CAP = 6 * MONTHLY_BASE_EXPENSES_DEFAULT;
-        if (newCashBal > EMERGENCY_FUND_CAP) newCashBal = EMERGENCY_FUND_CAP;
-        cashRef.current = newCashBal;
-
-        // Debt intervention threshold
-        if (creditRef.current > 5000 && !debtInterventionFiredRef.current) {
-          debtInterventionFiredRef.current = true;
-          clearInterval(intervalRef.current);
-          setPhase('PAUSED_DEBT_INTERVENTION');
-          return newAssets;
-        }
-
-        // Events fire at year boundaries (every 12 months)
-        const nextMonth  = prevMonth + 1;
-        if (nextMonth % 12 === 0) {
-          const nextYearNum = Math.floor(nextMonth / 12) + 1; // 1-indexed
-          const bkr = checkBankruptcies(prev, nextYearNum, stockPicks);
-          const mkt = MARKET_EVENTS.find(e => e.year === nextYearNum);
-          const lfe = LIFESTYLE_EVENTS.find(e => e.year === nextYearNum);
-
-          if (bkr.length > 0) {
-            clearInterval(intervalRef.current);
-            setPendingBankruptcies(bkr);
-            setPhase('PAUSED_BANKRUPTCY');
-          } else if (mkt) {
-            clearInterval(intervalRef.current);
-            setActiveEvent(mkt);
-            setPhase('PAUSED_MARKET');
-          } else if (lfe) {
-            clearInterval(intervalRef.current);
-            if (lfe.year === 14 && hadDaycareRef.current) {
-              expensesRef.current = Math.max(MONTHLY_BASE_EXPENSES_DEFAULT, expensesRef.current - 2800);
-              setMonthlyExpenses(prev => Math.max(MONTHLY_BASE_EXPENSES_DEFAULT, prev - 2800));
-            }
-            setActiveEvent(lfe);
-            setPhase('PAUSED_LIFESTYLE');
-          }
-        }
-
-        if (prevMonth + 1 >= TOTAL_MONTHS) {
-          clearInterval(intervalRef.current);
-          setPhase('REVEAL');
-        }
-
-        return newAssets;
-      });
-
-      setCashDisplay({ balance: cashRef.current, debt: creditRef.current });
-      return prevMonth + 1;
-    });
-  }
-
-  useEffect(() => {
-    if (phase !== 'RUNNING' || simPaused) {
-      clearInterval(intervalRef.current);
+    if (debtCrossed) {
+      debtInterventionFiredRef.current = true;
+      setPhase('PAUSED_DEBT_INTERVENTION');
       return;
     }
-    intervalRef.current = setInterval(advanceOneMonth, simSpeed);
-    return () => clearInterval(intervalRef.current);
-  }, [phase, config, simSpeed, simPaused]); // monthlyContrib intentionally excluded — handled via ref
+    if (endMonth >= TOTAL_MONTHS) {
+      setPhase('REVEAL');
+      return;
+    }
+    setPhase('YEAR_SUMMARY');
+  }
+
+  // Called by the "Continue to Year X" button and after all event confirmations.
+  function handleContinueYear() {
+    const startMonth = currentMonth;
+    const yearNum    = Math.floor(startMonth / 12) + 1;
+    const cfg        = config;
+
+    const bankr = checkBankruptcies(byAssetRef.current, yearNum, cfg.stockPicks);
+    const mkt   = MARKET_EVENTS.find(e => e.year === yearNum);
+    const lfe   = LIFESTYLE_EVENTS.find(e => e.year === yearNum);
+
+    if (bankr.length > 0) {
+      setPendingBankruptcies(bankr);
+      setPhase('PAUSED_BANKRUPTCY');
+      return;
+    }
+    if (mkt) {
+      setActiveEvent(mkt);
+      setPhase('PAUSED_MARKET');
+      return;
+    }
+    if (lfe) {
+      if (lfe.year === 14 && hadDaycareRef.current) {
+        expensesRef.current = Math.max(MONTHLY_BASE_EXPENSES_DEFAULT, expensesRef.current - 2800);
+        setMonthlyExpenses(prev => Math.max(MONTHLY_BASE_EXPENSES_DEFAULT, prev - 2800));
+      }
+      setActiveEvent(lfe);
+      setPhase('PAUSED_LIFESTYLE');
+      return;
+    }
+
+    computeYearInternal(startMonth, cfg);
+  }
 
   function handleStart({ monthly, alloc, stockPicks }) {
     const initial = { vtsax: 0, advisor: 0, bonds: 0, gold: 0, cash: 0, stocks: {} };
     for (const id of stockPicks) initial.stocks[id] = 0;
 
-    vtsaxBenchRef.current          = 0;
-    cashBenchRef.current           = 0;
-    cashRef.current                = 3000;
-    creditRef.current              = 0;
-    expensesRef.current            = MONTHLY_BASE_EXPENSES_DEFAULT;
-    hadDaycareRef.current          = false;
-    monthlyContribRef.current      = monthly;
+    vtsaxBenchRef.current            = 0;
+    cashBenchRef.current             = 0;
+    cashRef.current                  = 3000;
+    creditRef.current                = 0;
+    expensesRef.current              = MONTHLY_BASE_EXPENSES_DEFAULT;
+    hadDaycareRef.current            = false;
+    monthlyContribRef.current        = monthly;
     debtInterventionFiredRef.current = false;
+    byAssetRef.current               = initial;
+    prevYearTotalRef.current         = 0;
 
     setByAsset(initial);
     setMonthlyContrib(monthly);
@@ -1124,19 +1231,21 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
     setLifestyleChoices([]);
     setCashDisplay({ balance: 3000, debt: 0 });
     setMonthlyExpenses(MONTHLY_BASE_EXPENSES_DEFAULT);
-    setSimPaused(false);
-    setPhase('RUNNING');
+    setYearSummary({ year: 0, initialMonthly: monthly });
+    setPhase('YEAR_SUMMARY');
   }
 
   function handleReset() {
-    vtsaxBenchRef.current          = 0;
-    cashBenchRef.current           = 0;
-    cashRef.current                = 3000;
-    creditRef.current              = 0;
-    expensesRef.current            = MONTHLY_BASE_EXPENSES_DEFAULT;
-    hadDaycareRef.current          = false;
-    monthlyContribRef.current      = 300;
+    vtsaxBenchRef.current            = 0;
+    cashBenchRef.current             = 0;
+    cashRef.current                  = 3000;
+    creditRef.current                = 0;
+    expensesRef.current              = MONTHLY_BASE_EXPENSES_DEFAULT;
+    hadDaycareRef.current            = false;
+    monthlyContribRef.current        = 300;
     debtInterventionFiredRef.current = false;
+    byAssetRef.current               = {};
+    prevYearTotalRef.current         = 0;
 
     setPhase('SETUP');
     setConfig(null);
@@ -1150,16 +1259,17 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
     setPendingBankruptcies([]);
     setCashDisplay({ balance: 3000, debt: 0 });
     setMonthlyExpenses(MONTHLY_BASE_EXPENSES_DEFAULT);
-    setSimPaused(false);
+    setYearSummary(null);
   }
 
   function handleCrashConfirm({ moves, newByAsset }) {
     if (moves?.length > 0 && newByAsset) {
-      setByAsset(() => newByAsset);
+      byAssetRef.current = newByAsset;
+      setByAsset(newByAsset);
       setPanicMoves(pm => [...pm, ...moves.map(m => ({ ...m, month: currentMonth }))]);
     }
     setActiveEvent(null);
-    setPhase('RUNNING');
+    computeYearInternal(currentMonth, config);
   }
 
   function handleLifestyleConfirm({ choice }) {
@@ -1199,55 +1309,53 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
     }
 
     if (choice.investLumpSum > 0) {
-      setByAsset(prev => {
-        const updated = { ...prev, stocks: { ...(prev.stocks ?? {}) } };
-        const { alloc, stockPicks } = config;
-        for (const [id, pct] of Object.entries(alloc)) {
-          if (!pct) continue;
-          if (id === 'stocks' && stockPicks.length > 0) {
-            const perStock = choice.investLumpSum * (pct / 100) / stockPicks.length;
-            for (const sid of stockPicks) {
-              updated.stocks[sid] = (updated.stocks[sid] ?? 0) + perStock;
-            }
-          } else if (id !== 'stocks') {
-            updated[id] = (updated[id] ?? 0) + choice.investLumpSum * (pct / 100);
+      const updated = { ...byAssetRef.current, stocks: { ...(byAssetRef.current.stocks ?? {}) } };
+      for (const [id, pct] of Object.entries(config.alloc)) {
+        if (!pct) continue;
+        if (id === 'stocks' && config.stockPicks.length > 0) {
+          const perStock = choice.investLumpSum * (pct / 100) / config.stockPicks.length;
+          for (const sid of config.stockPicks) {
+            updated.stocks[sid] = (updated.stocks[sid] ?? 0) + perStock;
           }
+        } else if (id !== 'stocks') {
+          updated[id] = (updated[id] ?? 0) + choice.investLumpSum * (pct / 100);
         }
-        return updated;
-      });
+      }
+      byAssetRef.current = updated;
+      setByAsset(updated);
       vtsaxBenchRef.current += choice.investLumpSum;
       cashBenchRef.current  += choice.investLumpSum;
     }
 
     setLifestyleChoices(prev => [...prev, {
-      year:            displayYear,
-      title:           activeEvent.title,
-      choiceLabel:     choice.label,
-      opportunityCost: cost,
+      year:              displayYear,
+      title:             activeEvent.title,
+      choiceLabel:       choice.label,
+      opportunityCost:   cost,
       opportunitySaving: benefit,
-      lumpSumLoss:     choice.lumpSumLoss ?? false,
+      lumpSumLoss:       choice.lumpSumLoss ?? false,
     }]);
 
     setActiveEvent(null);
-    setPhase('RUNNING');
+    computeYearInternal(currentMonth, config);
   }
 
   function handleBankruptcyConfirm() {
     setPendingBankruptcies([]);
-    const displayYear = Math.floor(currentMonth / 12) + 1;
-    const marketEvent = MARKET_EVENTS.find(e => e.year === displayYear);
-    if (marketEvent) {
-      setActiveEvent(marketEvent);
+    const yearNum = Math.floor(currentMonth / 12) + 1;
+    const mkt = MARKET_EVENTS.find(e => e.year === yearNum);
+    if (mkt) {
+      setActiveEvent(mkt);
       setPhase('PAUSED_MARKET');
     } else {
-      setPhase('RUNNING');
+      computeYearInternal(currentMonth, config);
     }
   }
 
   function handleDebtInterventionConfirm({ newContrib }) {
     monthlyContribRef.current = newContrib;
     setMonthlyContrib(newContrib);
-    setPhase('RUNNING');
+    setPhase('YEAR_SUMMARY');
   }
 
   if (phase === 'SETUP') {
@@ -1271,17 +1379,10 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
     );
   }
 
-  const displayYear   = Math.floor(currentMonth / 12) + 1;
   const currentTotal  = totalPortfolio(byAsset);
   const vtsaxCurrent  = vtsaxBenchRef.current;
-  const yearContext   = YEAR_CONTEXT[displayYear] ?? null;
-
-  // Pre-event warning: look 12 months ahead (last 12 months before any lifestyle event)
-  const upcomingEvent = LIFESTYLE_EVENTS.find(e =>
-    currentMonth >= e.year * 12 - 12 && currentMonth < e.year * 12
-  );
-
-  const chartData = history.map((p, i) => ({ month: i, ...p }));
+  const chartData     = history.map((p, i) => ({ month: i, ...p }));
+  const displayedYear = yearSummary?.year ?? Math.floor(currentMonth / 12);
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
@@ -1301,7 +1402,7 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
           cashBalance={cashDisplay.balance}
           creditDebt={cashDisplay.debt}
           monthlyContrib={monthlyContrib}
-          currentYear={displayYear}
+          currentYear={Math.floor(currentMonth / 12) + 1}
           hadDaycare={hadDaycareRef.current}
           onConfirm={handleLifestyleConfirm}
         />
@@ -1332,111 +1433,84 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
             <div>
               <p className="text-xs font-bold text-emerald-600 uppercase tracking-widest">Market Simulator</p>
               <h2 className="text-xl font-bold text-slate-900">
-                Year {displayYear} of {TOTAL_YEARS}
-                <span className="text-sm font-normal text-slate-400 ml-2">Month {(currentMonth % 12) + 1}</span>
+                {displayedYear === 0
+                  ? 'Starting position'
+                  : `Year ${displayedYear} of ${TOTAL_YEARS}`}
               </h2>
             </div>
-            <div className="text-right">
-              <p className="text-xs text-slate-500">Portfolio</p>
-              <p className="text-xl font-bold text-indigo-700">{fmt(currentTotal)}</p>
-              {vtsaxCurrent > 0 && (
-                <p className={`text-xs font-semibold ${currentTotal >= vtsaxCurrent ? 'text-emerald-600' : 'text-red-500'}`}>
-                  {currentTotal >= vtsaxCurrent ? `+${fmt(currentTotal - vtsaxCurrent)}` : `${fmt(currentTotal - vtsaxCurrent)}`} vs VTSAX
-                </p>
-              )}
-            </div>
+            {currentTotal > 0 && (
+              <div className="text-right">
+                <p className="text-xs text-slate-500">Portfolio</p>
+                <p className="text-xl font-bold text-indigo-700">{fmt(currentTotal)}</p>
+                {vtsaxCurrent > 0 && (
+                  <p className={`text-xs font-semibold ${currentTotal >= vtsaxCurrent ? 'text-emerald-600' : 'text-red-500'}`}>
+                    {currentTotal >= vtsaxCurrent ? `+${fmt(currentTotal - vtsaxCurrent)}` : `${fmt(currentTotal - vtsaxCurrent)}`} vs VTSAX
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Progress bar */}
           <div className="w-full bg-slate-200 rounded-full h-2">
-            <div className="bg-indigo-500 h-2 rounded-full transition-all duration-300"
+            <div className="bg-indigo-500 h-2 rounded-full transition-all duration-500"
               style={{ width: `${(currentMonth / TOTAL_MONTHS) * 100}%` }} />
           </div>
 
-          {/* Speed controls */}
-          <div className="flex items-center gap-3">
-            <button onClick={() => setSimPaused(p => !p)}
-              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                simPaused ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-              }`}>
-              {simPaused ? '▶ Resume' : '⏸ Pause'}
-            </button>
-            <span className="text-xs text-slate-400">Speed:</span>
-            {[{ label: '1×', ms: 150 }, { label: '3×', ms: 50 }, { label: '10×', ms: 10 }].map(({ label, ms }) => (
-              <button key={ms} onClick={() => setSimSpeed(ms)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                  simSpeed === ms ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}>
-                {label}
-              </button>
-            ))}
-          </div>
+          {/* Year summary card — shown between years */}
+          {phase === 'YEAR_SUMMARY' && yearSummary && (
+            <YearSummaryCard summary={yearSummary} onContinue={handleContinueYear} />
+          )}
 
-          {/* Pre-event warning */}
-          {upcomingEvent && phase === 'RUNNING' && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 flex items-start gap-2">
-              <span className="text-base flex-shrink-0 mt-0.5">🔔</span>
-              <div>
-                <p className="text-xs font-semibold text-amber-800">Coming up in about a year: {upcomingEvent.title}</p>
-                <p className="text-xs text-amber-700 mt-0.5">{upcomingEvent.prepTip}</p>
+          {/* Chart */}
+          {currentMonth > 0 && (
+            <div className="bg-white border border-slate-200 rounded-xl p-4">
+              <p className="text-sm font-semibold text-slate-700 mb-3">Portfolio vs. VTSAX benchmark</p>
+              <div className="h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData}>
+                    <XAxis dataKey="month" tick={{ fontSize: 10 }}
+                      tickFormatter={v => v % 12 === 0 && v > 0 ? `Yr ${v / 12}` : ''}
+                    />
+                    <YAxis tickFormatter={fmt} tick={{ fontSize: 10 }} width={55} />
+                    <ReTooltip content={<SimTooltip />} />
+                    {MARKET_EVENTS.filter(e => e.year <= displayedYear).map(e => (
+                      <ReferenceLine key={e.year} x={(e.year - 1) * 12} stroke="#ef4444" strokeDasharray="3 3" />
+                    ))}
+                    <Line type="monotone" dataKey="total" name="Your portfolio" stroke="#6366f1" strokeWidth={2.5} dot={false} isAnimationActive={false} />
+                    <Line type="monotone" dataKey="vtsaxBenchmark" name="VTSAX (100%)" stroke="#10b981" strokeWidth={1.5} strokeDasharray="5 3" dot={false} isAnimationActive={false} />
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
             </div>
           )}
 
-          {/* Year context */}
-          {yearContext && phase === 'RUNNING' && (
-            <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2">
-              <p className="text-xs text-slate-500">
-                <span className="font-semibold text-slate-700">Year {displayYear}:</span> {yearContext}
-              </p>
+          {/* Position breakdown */}
+          {currentMonth > 0 && (
+            <div className="bg-white border border-slate-200 rounded-xl p-4">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Current positions</p>
+              <div className="space-y-2">
+                {Object.entries(ASSET_LABELS).map(([id, label]) => {
+                  const val = id === 'stocks'
+                    ? Object.values(byAsset.stocks ?? {}).reduce((s, v) => s + v, 0)
+                    : (byAsset[id] ?? 0);
+                  if (val < 1 && (config?.alloc?.[id] ?? 0) === 0) return null;
+                  const pctOfPortfolio = currentTotal > 0 ? Math.round((val / currentTotal) * 100) : 0;
+                  return (
+                    <div key={id} className="flex items-center gap-3">
+                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: ASSET_COLORS[id] }} />
+                      <span className="text-sm text-slate-600 flex-1">{label}</span>
+                      <div className="w-24 bg-slate-100 rounded-full h-1.5">
+                        <div className="h-1.5 rounded-full" style={{ width: `${pctOfPortfolio}%`, backgroundColor: ASSET_COLORS[id] }} />
+                      </div>
+                      <span className="text-sm font-semibold text-slate-800 w-20 text-right">{fmt(val)}</span>
+                      <span className="text-xs text-slate-400 w-8 text-right">{pctOfPortfolio}%</span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
-
-          {/* Live chart */}
-          <div className="bg-white border border-slate-200 rounded-xl p-4">
-            <p className="text-sm font-semibold text-slate-700 mb-3">Portfolio vs. VTSAX benchmark</p>
-            <div className="h-56">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData}>
-                  <XAxis dataKey="month" tick={{ fontSize: 10 }}
-                    tickFormatter={v => v % 12 === 0 && v > 0 ? `Yr ${v / 12}` : ''}
-                  />
-                  <YAxis tickFormatter={fmt} tick={{ fontSize: 10 }} width={55} />
-                  <ReTooltip content={<SimTooltip />} />
-                  {MARKET_EVENTS.filter(e => e.year <= displayYear).map(e => (
-                    <ReferenceLine key={e.year} x={(e.year - 1) * 12} stroke="#ef4444" strokeDasharray="3 3" />
-                  ))}
-                  <Line type="monotone" dataKey="total" name="Your portfolio" stroke="#6366f1" strokeWidth={2.5} dot={false} isAnimationActive={false} />
-                  <Line type="monotone" dataKey="vtsaxBenchmark" name="VTSAX (100%)" stroke="#10b981" strokeWidth={1.5} strokeDasharray="5 3" dot={false} isAnimationActive={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Position breakdown */}
-          <div className="bg-white border border-slate-200 rounded-xl p-4">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Current positions</p>
-            <div className="space-y-2">
-              {Object.entries(ASSET_LABELS).map(([id, label]) => {
-                const val = id === 'stocks'
-                  ? Object.values(byAsset.stocks ?? {}).reduce((s, v) => s + v, 0)
-                  : (byAsset[id] ?? 0);
-                if (val < 1 && (config?.alloc?.[id] ?? 0) === 0) return null;
-                const pctOfPortfolio = currentTotal > 0 ? Math.round((val / currentTotal) * 100) : 0;
-                return (
-                  <div key={id} className="flex items-center gap-3">
-                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: ASSET_COLORS[id] }} />
-                    <span className="text-sm text-slate-600 flex-1">{label}</span>
-                    <div className="w-24 bg-slate-100 rounded-full h-1.5">
-                      <div className="h-1.5 rounded-full" style={{ width: `${pctOfPortfolio}%`, backgroundColor: ASSET_COLORS[id] }} />
-                    </div>
-                    <span className="text-sm font-semibold text-slate-800 w-20 text-right">{fmt(val)}</span>
-                    <span className="text-xs text-slate-400 w-8 text-right">{pctOfPortfolio}%</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
 
         </div>{/* end main column */}
 
