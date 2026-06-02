@@ -171,10 +171,26 @@ function SetupScreen({ initialSurplus, onStart }) {
         </p>
       </div>
 
+      {/* Budget data from Grade 10 */}
+      {initialSurplus > 0 && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 space-y-1">
+          <p className="text-sm font-semibold text-emerald-900">From your Grade 10 budget</p>
+          <div className="flex flex-wrap gap-4 text-xs text-emerald-800">
+            <span>Take-home: <strong>{fmtFull(MONTHLY_INCOME)}/mo</strong></span>
+            <span>Surplus: <strong>{fmtFull(initialSurplus)}/mo ← suggested starting amount</strong></span>
+          </div>
+          <p className="text-xs text-emerald-600">This is your actual money, not a hypothetical.</p>
+        </div>
+      )}
+
       {/* Monthly amount */}
       <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
+        <div>
+          <p className="text-sm font-semibold text-slate-800 mb-1">Total savings to set aside each month</p>
+          <p className="text-xs text-slate-500">Start with your full surplus. Then decide below: how much stays liquid (HYSA/checking) vs. grows in the market?</p>
+        </div>
         <div className="flex justify-between items-center">
-          <label className="text-sm font-semibold text-slate-800">Monthly investment</label>
+          <label className="text-sm font-semibold text-slate-800">Monthly amount</label>
           <span className="font-bold text-indigo-700">{fmtFull(monthly)}/mo</span>
         </div>
         <input type="range" min={50} max={MAX_MONTHLY_INVESTABLE} step={25} value={monthly}
@@ -188,9 +204,9 @@ function SetupScreen({ initialSurplus, onStart }) {
           Assumed: {fmtFull(MONTHLY_INCOME)}/mo take-home · {fmtFull(MONTHLY_BASE_EXPENSES_DEFAULT)}/mo base expenses · {fmtFull(monthlySurplus)}/mo surplus.
           You start with <strong>$3,000 in your checking account</strong>. Life events will draw from it.
         </div>
-        {initialSurplus > 0 && (
-          <p className="text-xs text-emerald-600">Suggested from your budget: {fmtFull(initialSurplus)}/mo</p>
-        )}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-800">
+          <strong>Dollar-Cost Averaging:</strong> By setting aside {fmtFull(monthly)} every month regardless of market conditions, you automatically buy more shares when prices are low and fewer when they're high — one of personal finance's most powerful habits.
+        </div>
       </div>
 
       {/* Allocation */}
@@ -202,9 +218,9 @@ function SetupScreen({ initialSurplus, onStart }) {
           </span>
         </div>
         <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 space-y-1">
-          <p className="text-xs font-semibold text-emerald-900">💡 Why does this start at 100% savings?</p>
-          <p className="text-xs text-emerald-800">Your paycheck lands in a bank account. Most Americans never move it — not because they can't, but because investing requires a conscious choice. This simulation starts you there, same as real life.</p>
-          <p className="text-xs text-emerald-700 font-medium">To invest: drag the HYSA slider down and allocate to other assets.</p>
+          <p className="text-xs font-semibold text-emerald-900">💡 Total savings first — then decide the allocation</p>
+          <p className="text-xs text-emerald-800">Your {fmtFull(monthly)}/mo is set aside. Now: how much stays liquid (HYSA = high-yield savings) vs. invested in market assets? Starts at 100% HYSA — same as real life. Most Americans never drag this slider.</p>
+          <p className="text-xs text-emerald-700 font-medium">To invest: drag HYSA down and allocate to other assets.</p>
         </div>
         {Object.entries(ASSET_LABELS).map(([id, label]) => (
           <div key={id}>
@@ -379,11 +395,18 @@ function CrashOverlay({ event, byAsset, alloc, stockPicks, onConfirm }) {
           })}
         </div>
         {totalExit > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2">
-            <p className="text-xs text-amber-800">
-              Moving <strong>{fmtFull(Math.round(totalExit))}</strong> to HYSA.
-              New HYSA position: <strong>{fmtFull(Math.round(cashValue + totalExit))}</strong>.
-            </p>
+          <div className="space-y-2">
+            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2">
+              <p className="text-xs text-amber-800">
+                Moving <strong>{fmtFull(Math.round(totalExit))}</strong> to HYSA.
+                New HYSA position: <strong>{fmtFull(Math.round(cashValue + totalExit))}</strong>.
+              </p>
+            </div>
+            <div className="bg-slate-100 rounded-xl px-4 py-3 text-xs text-slate-600 space-y-1">
+              <p className="font-semibold text-slate-700">🧠 Loss aversion (Kahneman & Tversky, 1979)</p>
+              <p>The psychological pain of a loss feels ~2× stronger than the pleasure of an equivalent gain. This is why crashes feel unbearable and trigger selling — even when staying invested is historically the better choice.</p>
+              <p className="text-slate-500 italic">Investors who held through the 2008 crash recovered in full by 2013 and went on to major gains.</p>
+            </div>
           </div>
         )}
         <div className="grid grid-cols-2 gap-2 pt-1">
@@ -403,10 +426,15 @@ function CrashOverlay({ event, byAsset, alloc, stockPicks, onConfirm }) {
 
 // ── Lifestyle overlay ─────────────────────────────────────────────────────────
 
-function LifestyleOverlay({ event, cashBalance, creditDebt, monthlyContrib, currentYear, hadDaycare, partnerActive, onConfirm }) {
+function LifestyleOverlay({ event, cashBalance, creditDebt, monthlyContrib, currentYear, hadDaycare, partnerActive, pickedPrivateSchool, onConfirm }) {
   const yearsLeft = TOTAL_YEARS - currentYear;
   const isMonthEvent = event.month != null;
   const periodLabel = isMonthEvent ? `Month ${event.month}` : `Year ${currentYear}`;
+
+  // Year 14: override scenario text if private school was chosen (costs didn't "free up")
+  const scenarioText = (event.year === 14 && pickedPrivateSchool)
+    ? "Your kids are now in school full-time. But with private school at $1,500/mo, tuition continues — the \"breathing room\" others get doesn't apply here. You can still redirect other income changes."
+    : event.scenario;
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
@@ -414,12 +442,18 @@ function LifestyleOverlay({ event, cashBalance, creditDebt, monthlyContrib, curr
         <div>
           <p className="text-xs font-bold text-blue-600 uppercase tracking-widest">{isMonthEvent ? 'Life moment' : 'Life event'} — {periodLabel}</p>
           <h3 className="text-lg font-bold text-slate-900 mt-0.5">{event.title}</h3>
-          <p className="text-sm text-slate-600 mt-1">{event.scenario}</p>
+          <p className="text-sm text-slate-600 mt-1">{scenarioText}</p>
         </div>
 
         {event.year === 14 && hadDaycare && (
           <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2">
             <p className="text-xs text-emerald-700">✓ Your childcare cost has been removed from your expenses.</p>
+          </div>
+        )}
+
+        {event.year === 14 && pickedPrivateSchool && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2">
+            <p className="text-xs text-amber-800">Private school tuition ($1,500/mo) continues — no cost reduction here.</p>
           </div>
         )}
 
@@ -449,7 +483,7 @@ function LifestyleOverlay({ event, cashBalance, creditDebt, monthlyContrib, curr
         </div>
 
         <div className="space-y-2">
-          {event.choices.map((choice, i) => {
+          {event.choices.filter(c => !c.showIf || c.showIf({ creditDebt, cashBalance, pickedPrivateSchool })).map((choice, i) => {
             const { cost, benefit } = computeChoiceImpact(choice, yearsLeft);
             const newCash     = cashBalance + (choice.cashImpact ?? 0);
             const willOverdraft = newCash < 0;
@@ -518,6 +552,10 @@ function BankruptcyOverlay({ bankruptcies, onConfirm }) {
             <p className="text-xs text-red-800">Total lost: <strong>{fmtFull(Math.round(totalLost))}</strong></p>
           </div>
         )}
+        <div className="bg-slate-100 rounded-xl px-4 py-3 text-xs text-slate-600 space-y-1">
+          <p className="font-semibold text-slate-700">🧠 Sunk cost fallacy</p>
+          <p>Money already lost cannot be recovered — it's "sunk." The only question is: where do future dollars go? Holding a position hoping it "comes back" when the company is bankrupt is irrational. What matters now is your next decision.</p>
+        </div>
         <button onClick={onConfirm}
           className="w-full bg-slate-800 hover:bg-slate-900 text-white font-semibold py-3 rounded-xl text-sm">
           Continue →
@@ -620,7 +658,8 @@ function DebtInterventionOverlay({ monthlyContrib, monthlyExpenses, creditDebt, 
 
 // ── Financial panel (persistent sidebar) ─────────────────────────────────────
 
-function FinancialPanel({ monthlyContrib, monthlyExpenses, cashDisplay, partnerActive, partnerHome, onContribChange }) {
+function FinancialPanel({ monthlyContrib, monthlyExpenses, cashDisplay, partnerActive, partnerHome, portfolioTotal, liveAlloc, lifestyleAdjustment, onContribChange, onAllocChange, onLifestyleAdjust }) {
+  const [showAllocPanel, setShowAllocPanel] = useState(false);
   const EMERGENCY_CAP  = 6 * MONTHLY_BASE_EXPENSES_DEFAULT;
   const householdIncome = partnerActive ? MONTHLY_INCOME + PARTNER_INCOME : MONTHLY_INCOME;
   const monthlyBuffer  = householdIncome - monthlyExpenses - monthlyContrib;
@@ -639,8 +678,21 @@ function FinancialPanel({ monthlyContrib, monthlyExpenses, cashDisplay, partnerA
   }
   const payoffMonths = projectPayoffMonths();
 
+  const netWorth = (portfolioTotal ?? 0) + cashDisplay.balance - cashDisplay.debt;
+
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4 lg:sticky lg:top-4">
+      {/* Net worth */}
+      <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2">
+        <div className="flex justify-between items-center">
+          <p className="text-xs font-semibold text-indigo-700">Net Worth</p>
+          <p className={`text-sm font-bold ${netWorth >= 0 ? 'text-indigo-800' : 'text-red-700'}`}>
+            {netWorth >= 0 ? fmtFull(Math.round(netWorth)) : `−${fmtFull(Math.round(Math.abs(netWorth)))}`}
+          </p>
+        </div>
+        <p className="text-xs text-indigo-500 mt-0.5">Portfolio + checking − CC debt</p>
+      </div>
+
       {/* Budget */}
       <div>
         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Monthly budget</p>
@@ -701,6 +753,82 @@ function FinancialPanel({ monthlyContrib, monthlyExpenses, cashDisplay, partnerA
         </div>
       </div>
 
+      {/* Lifestyle spending adjustment */}
+      {onLifestyleAdjust && (
+        <div className="border-t border-slate-100 pt-3 space-y-1.5">
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-semibold text-slate-700">Lifestyle spending</span>
+            <span className={`text-xs font-bold ${lifestyleAdjustment > 0 ? 'text-red-500' : lifestyleAdjustment < 0 ? 'text-emerald-600' : 'text-slate-500'}`}>
+              {lifestyleAdjustment > 0 ? `+${fmtFull(lifestyleAdjustment)}/mo` : lifestyleAdjustment < 0 ? `${fmtFull(lifestyleAdjustment)}/mo` : 'neutral'}
+            </span>
+          </div>
+          <input
+            type="range" min={-300} max={500} step={25}
+            value={lifestyleAdjustment ?? 0}
+            onChange={e => onLifestyleAdjust(Number(e.target.value))}
+            className="w-full"
+            style={{ accentColor: lifestyleAdjustment > 0 ? '#ef4444' : '#10b981', height: '6px' }}
+          />
+          <div className="flex justify-between text-xs text-slate-400">
+            <span>−$300 frugal</span>
+            <span>+$500 lavish</span>
+          </div>
+          <p className="text-xs text-slate-400 italic">Restaurants, entertainment, extras — adjust anytime.</p>
+        </div>
+      )}
+
+      {/* Live allocation changes */}
+      {liveAlloc && onAllocChange && (
+        <div className="border-t border-slate-100 pt-3">
+          <button
+            onClick={() => setShowAllocPanel(v => !v)}
+            className="w-full flex justify-between items-center text-xs font-semibold text-slate-700 hover:text-indigo-600"
+          >
+            <span>Adjust allocation</span>
+            <span className="text-slate-400">{showAllocPanel ? '▲' : '▼'}</span>
+          </button>
+          {showAllocPanel && (
+            <div className="mt-2 space-y-2">
+              <p className="text-xs text-slate-400">Changes affect future contributions only — existing positions stay put.</p>
+              {Object.entries(ASSET_LABELS).map(([id, label]) => {
+                const pct = liveAlloc[id] ?? 0;
+                const total = Object.values(liveAlloc).reduce((s, v) => s + v, 0);
+                return (
+                  <div key={id}>
+                    <div className="flex justify-between items-center mb-0.5">
+                      <span className="text-xs text-slate-600 flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: ASSET_COLORS[id] }} />
+                        {label}
+                      </span>
+                      <span className="text-xs font-semibold text-slate-700">{pct}%</span>
+                    </div>
+                    <input type="range" min={0} max={100} step={5} value={pct}
+                      onChange={e => {
+                        const newVal = Number(e.target.value);
+                        const newAlloc = { ...liveAlloc, [id]: newVal };
+                        onAllocChange(newAlloc);
+                      }}
+                      className="w-full"
+                      style={{ accentColor: ASSET_COLORS[id], height: '4px' }}
+                    />
+                  </div>
+                );
+              })}
+              {(() => {
+                const total = Object.values(liveAlloc).reduce((s, v) => s + v, 0);
+                return total !== 100 ? (
+                  <p className={`text-xs font-semibold ${total > 100 ? 'text-red-600' : 'text-amber-600'}`}>
+                    {total > 100 ? `${total - 100}% over — reduce an asset` : `${100 - total}% unallocated — add to an asset`}
+                  </p>
+                ) : (
+                  <p className="text-xs text-emerald-600">✓ 100% allocated</p>
+                );
+              })()}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Accounts */}
       <div className="border-t border-slate-100 pt-3 space-y-2">
         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Accounts</p>
@@ -708,15 +836,21 @@ function FinancialPanel({ monthlyContrib, monthlyExpenses, cashDisplay, partnerA
         <div className="text-xs">
           <div className="flex justify-between">
             <span className="text-slate-500">Checking</span>
-            <span className={`font-semibold ${cashDisplay.balance < 1000 ? 'text-amber-600' : 'text-slate-700'}`}>
+            <span className={`font-semibold ${
+              cashDisplay.balance < 1000    ? 'text-amber-600'
+              : cashDisplay.balance >= EMERGENCY_CAP * 2 ? 'text-orange-600 font-bold'
+              : cashDisplay.balance >= EMERGENCY_CAP ? 'text-emerald-700 font-bold'
+              : 'text-slate-700'
+            }`}>
               {fmtFull(Math.round(cashDisplay.balance))}
             </span>
           </div>
-          <p className="text-slate-400 mt-0.5">
-            {cashDisplay.debt > 0         ? 'Surplus redirected to debt'
-              : cashDisplay.balance >= EMERGENCY_CAP ? 'At 6-month cap'
-              : monthlyBuffer > 0         ? `+${fmtFull(monthlyBuffer)}/mo`
-              : monthlyBuffer < 0         ? `Draining ${fmtFull(Math.abs(monthlyBuffer))}/mo`
+          <p className={`mt-0.5 ${cashDisplay.balance >= EMERGENCY_CAP ? 'text-emerald-600' : 'text-slate-400'}`}>
+            {cashDisplay.debt > 0                     ? 'Surplus redirected to debt'
+              : cashDisplay.balance >= EMERGENCY_CAP * 2 ? '⚠ Well above 6-month emergency fund — invest more?'
+              : cashDisplay.balance >= EMERGENCY_CAP     ? '✓ Emergency fund complete ($17,400) — invest the rest?'
+              : monthlyBuffer > 0                        ? `+${fmtFull(monthlyBuffer)}/mo`
+              : monthlyBuffer < 0                        ? `Draining ${fmtFull(Math.abs(monthlyBuffer))}/mo`
               : 'Stable'}
           </p>
         </div>
@@ -941,23 +1075,47 @@ function RevealScreen({ history, finalPortfolio, alloc, stockPicks, panicMoves, 
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="bg-indigo-50 border-2 border-indigo-300 rounded-xl p-4 text-center">
           <p className="text-xs font-semibold text-indigo-600 mb-1">Your portfolio</p>
           <p className="text-2xl font-bold text-indigo-800">{fmt(finalTotal)}</p>
-          <p className="text-xs text-indigo-500 mt-1">nominal value</p>
+          <p className="text-xs text-indigo-500 mt-1">your choices</p>
         </div>
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
-          <p className="text-xs font-semibold text-emerald-600 mb-1">100% Index fund (VTSAX)</p>
+        <div className="bg-emerald-50 border-2 border-emerald-300 rounded-xl p-4 text-center">
+          <p className="text-xs font-semibold text-emerald-600 mb-1">Smart Investor</p>
           <p className="text-2xl font-bold text-emerald-700">{fmt(finalVtsax)}</p>
-          <p className="text-xs text-emerald-500 mt-1">same {fmtFull(initialMonthly)}/mo, no decisions</p>
+          <p className="text-xs text-emerald-500 mt-1">{fmtFull(initialMonthly)}/mo · 100% index · held every crash</p>
         </div>
-        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center">
-          <p className="text-xs font-semibold text-slate-500 mb-1">100% Cash / HYSA</p>
-          <p className="text-2xl font-bold text-slate-600">{fmt(finalCashBM)}</p>
-          <p className="text-xs text-slate-400 mt-1">the "safe" choice</p>
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
+          <p className="text-xs font-semibold text-amber-600 mb-1">Savings account only</p>
+          <p className="text-2xl font-bold text-amber-700">{fmt(finalCashBM)}</p>
+          <p className="text-xs text-amber-500 mt-1">same {fmtFull(initialMonthly)}/mo · HYSA only</p>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-4 text-center">
+          <p className="text-xs font-semibold text-slate-500 mb-1">You vs Smart Investor</p>
+          <p className={`text-2xl font-bold ${finalTotal >= finalVtsax ? 'text-emerald-700' : 'text-red-600'}`}>
+            {finalTotal >= finalVtsax ? '+' : ''}{fmt(finalTotal - finalVtsax)}
+          </p>
+          <p className="text-xs text-slate-400 mt-1">{finalTotal >= finalVtsax ? 'above optimal' : 'below optimal'}</p>
         </div>
       </div>
+
+      {/* Where you diverged from the Smart Investor */}
+      {(panicDetails.length > 0 || finalTotal < finalVtsax) && (
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
+          <p className="text-sm font-semibold text-slate-800">Where you diverged from the Smart Investor path</p>
+          <p className="text-xs text-slate-500">The Smart Investor put {fmtFull(initialMonthly)}/mo into VTSAX every month and never sold during crashes.</p>
+          {panicDetails.length > 0 && panicDetails.map((d, i) => (
+            <div key={i} className="text-xs text-red-700 bg-red-50 rounded-lg px-3 py-2">
+              Year {d.displayYear}: Moved {fmtFull(Math.round(d.sold))} out of {ASSET_LABELS[d.asset] ?? d.asset} during crash.
+              If held to Year 20: <strong>+{fmt(d.opportunityCost)} more</strong>.
+            </div>
+          ))}
+          {finalTotal < finalVtsax && panicDetails.length === 0 && (
+            <p className="text-xs text-slate-500">Your allocation mix (non-VTSAX assets) underperformed 100% index over this period.</p>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-white border border-slate-200 rounded-xl p-4">
@@ -1055,17 +1213,10 @@ function RevealScreen({ history, finalPortfolio, alloc, stockPicks, panicMoves, 
         </div>
       )}
 
-      {panicDetails.length > 0 && totalPanicCost > 500 && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-2">
-          <p className="text-sm font-bold text-red-900">The cost of selling during crashes</p>
-          {panicDetails.map((d, i) => (
-            <div key={i} className="text-xs text-red-700 bg-red-100 rounded-lg px-3 py-2">
-              Year {d.displayYear}: Moved {fmtFull(Math.round(d.sold))} out of {ASSET_LABELS[d.asset]}.
-              If held in VTSAX: <strong>+{fmt(d.opportunityCost)}</strong> more by Year 20.
-            </div>
-          ))}
+      {totalPanicCost > 500 && (
+        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
           <p className="text-xs font-semibold text-red-800">
-            Total cost of not staying the course: ~{fmt(totalPanicCost)}
+            Total cost of panic selling: ~{fmt(totalPanicCost)} less than if you had held.
           </p>
         </div>
       )}
@@ -1132,6 +1283,12 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
   const [monthSummary, setMonthSummary]               = useState(null);
   const [partnerActive, setPartnerActive]             = useState(false);
   const [partnerHome, setPartnerHome]                 = useState(false);
+  const [pickedPrivateSchool, setPickedPrivateSchool] = useState(false);
+  const [lifestyleAdjustment, setLifestyleAdjustment] = useState(0);
+  const [liveAlloc, setLiveAlloc]                     = useState(null); // set on start
+  // Year animation
+  const [animatingYear, setAnimatingYear]             = useState(false);
+  const [animFrame, setAnimFrame]                     = useState(0);
 
   // Refs — synchronous access inside computation loop and event handlers
   const cashRef                  = useRef(3000);
@@ -1141,11 +1298,18 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
   const childcareCostRef         = useRef(0);   // tracks actual childcare cost for year-14 reversal
   const partnerActiveRef         = useRef(false);
   const partnerHomeRef           = useRef(false);
+  const pickedPrivateSchoolRef   = useRef(false);
+  const lifestyleAdjRef          = useRef(0);
   const incomeRef                = useRef(MONTHLY_INCOME); // doubles when partner joins
   const monthlyContribRef        = useRef(300);
   const debtInterventionFiredRef = useRef(false);
   const byAssetRef               = useRef({});
   const prevYearTotalRef         = useRef(0);
+  // Animation refs
+  const animBufferRef            = useRef([]);
+  const animFrameRef             = useRef(0);
+  const animIntervalRef          = useRef(null);
+  const pendingPhaseRef          = useRef(null);
 
   const [cashDisplay, setCashDisplay]       = useState({ balance: 3000, debt: 0 });
   const [monthlyExpenses, setMonthlyExpenses] = useState(MONTHLY_BASE_EXPENSES_DEFAULT);
@@ -1163,7 +1327,7 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
 
   // Shared cash-flow logic for one month tick (used by both computeMonthInternal and computeYearInternal)
   function applyMonthlyCashFlow(mc) {
-    const monthlyNet = incomeRef.current - expensesRef.current - mc;
+    const monthlyNet = incomeRef.current - expensesRef.current - lifestyleAdjRef.current - mc;
     let newCash = cashRef.current + monthlyNet;
     if (creditRef.current > 0) {
       newCash -= Math.round(creditRef.current * 0.02);
@@ -1176,8 +1340,8 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
       creditRef.current -= payment;
       newCash -= payment;
     }
-    const EMERGENCY_CAP = 6 * MONTHLY_BASE_EXPENSES_DEFAULT;
-    if (newCash > EMERGENCY_CAP) newCash = EMERGENCY_CAP;
+    // No hard cap — excess cash beyond 6-month emergency fund stays in checking.
+    // FinancialPanel shows a colored warning when balance is high.
     cashRef.current = newCash;
   }
 
@@ -1241,9 +1405,10 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
   }
 
   // Synchronously computes 12 months starting from startMonth using refs.
-  // Batch-updates React state, then transitions to YEAR_SUMMARY (or REVEAL/PAUSED_DEBT_INTERVENTION).
+  // Buffers history for animation, then calls startYearAnimation() to drip chart data in.
   function computeYearInternal(startMonth, cfg) {
-    const { alloc, stockPicks } = cfg;
+    const alloc     = liveAlloc ?? cfg.alloc;  // use live alloc if player changed it
+    const stockPicks = cfg.stockPicks;
     const mc         = monthlyContribRef.current;
     let assets       = byAssetRef.current;
     const newHistory = [];
@@ -1272,7 +1437,7 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
 
     setByAsset(assets);
     setCurrentMonth(endMonth);
-    setHistory(prev => [...prev, ...newHistory]);
+    // History dripped in by animation; don't set it here
     setCashDisplay({ balance: cashRef.current, debt: creditRef.current });
 
     const nextLfe = LIFESTYLE_EVENTS.find(e => e.year === yearNum + 1) ?? null;
@@ -1289,17 +1454,57 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
     prevYearTotalRef.current = totalPortfolio(assets);
     setYearSummary(summary);
 
+    // Determine what phase follows the animation
     if (debtCrossed) {
       debtInterventionFiredRef.current = true;
-      setPhase('PAUSED_DEBT_INTERVENTION');
-      return;
+      pendingPhaseRef.current = 'PAUSED_DEBT_INTERVENTION';
+    } else if (endMonth >= TOTAL_MONTHS) {
+      pendingPhaseRef.current = 'REVEAL';
+    } else {
+      pendingPhaseRef.current = 'YEAR_SUMMARY';
     }
-    if (endMonth >= TOTAL_MONTHS) {
-      setPhase('REVEAL');
-      return;
-    }
-    setPhase('YEAR_SUMMARY');
+
+    // Start 20-second animation
+    animBufferRef.current = newHistory;
+    animFrameRef.current = 0;
+    setAnimFrame(0);
+    setAnimatingYear(true);
   }
+
+  // Skip remaining animation frames and jump to year summary immediately
+  function skipYearAnimation() {
+    clearInterval(animIntervalRef.current);
+    animIntervalRef.current = null;
+    const remaining = animBufferRef.current.slice(animFrameRef.current);
+    if (remaining.length > 0) {
+      setHistory(prev => [...prev, ...remaining]);
+    }
+    animFrameRef.current = animBufferRef.current.length;
+    setAnimFrame(animBufferRef.current.length);
+    setAnimatingYear(false);
+    setPhase(pendingPhaseRef.current ?? 'YEAR_SUMMARY');
+  }
+
+  // Animation tick effect — fires when animatingYear becomes true
+  useEffect(() => {
+    if (!animatingYear) return;
+    animIntervalRef.current = setInterval(() => {
+      const frame = animFrameRef.current;
+      if (frame >= animBufferRef.current.length) {
+        clearInterval(animIntervalRef.current);
+        animIntervalRef.current = null;
+        setAnimatingYear(false);
+        setPhase(pendingPhaseRef.current ?? 'YEAR_SUMMARY');
+        return;
+      }
+      setHistory(prev => [...prev, animBufferRef.current[frame]]);
+      animFrameRef.current = frame + 1;
+      setAnimFrame(frame + 1);
+    }, Math.round(20000 / 12)); // 20 seconds spread across 12 months
+    return () => {
+      if (animIntervalRef.current) clearInterval(animIntervalRef.current);
+    };
+  }, [animatingYear]);
 
   // Central Continue dispatcher — monthly for months 0-35, yearly from month 36 onward.
   function handleContinue() {
@@ -1369,6 +1574,8 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
     childcareCostRef.current         = 0;
     partnerActiveRef.current         = false;
     partnerHomeRef.current           = false;
+    pickedPrivateSchoolRef.current   = false;
+    lifestyleAdjRef.current          = 0;
     incomeRef.current                = MONTHLY_INCOME;
     monthlyContribRef.current        = monthly;
     debtInterventionFiredRef.current = false;
@@ -1378,6 +1585,7 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
     setByAsset(initial);
     setMonthlyContrib(monthly);
     setConfig({ monthly, alloc, stockPicks });
+    setLiveAlloc(alloc);
     setCurrentMonth(0);
     setHistory([{ total: 0, vtsaxBenchmark: 0, cashBenchmark: 0 }]);
     setPanicMoves([]);
@@ -1386,12 +1594,17 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
     setMonthlyExpenses(MONTHLY_BASE_EXPENSES_DEFAULT);
     setPartnerActive(false);
     setPartnerHome(false);
+    setPickedPrivateSchool(false);
+    setLifestyleAdjustment(0);
+    setAnimatingYear(false);
+    setAnimFrame(0);
     setYearSummary({ year: 0, initialMonthly: monthly });
     setMonthSummary(null);
     setPhase('YEAR_SUMMARY');
   }
 
   function handleReset() {
+    if (animIntervalRef.current) clearInterval(animIntervalRef.current);
     vtsaxBenchRef.current            = 0;
     cashBenchRef.current             = 0;
     cashRef.current                  = 3000;
@@ -1401,6 +1614,8 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
     childcareCostRef.current         = 0;
     partnerActiveRef.current         = false;
     partnerHomeRef.current           = false;
+    pickedPrivateSchoolRef.current   = false;
+    lifestyleAdjRef.current          = 0;
     incomeRef.current                = MONTHLY_INCOME;
     monthlyContribRef.current        = 300;
     debtInterventionFiredRef.current = false;
@@ -1409,6 +1624,7 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
 
     setPhase('SETUP');
     setConfig(null);
+    setLiveAlloc(null);
     setCurrentMonth(0);
     setByAsset({});
     setMonthlyContrib(300);
@@ -1421,8 +1637,21 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
     setMonthlyExpenses(MONTHLY_BASE_EXPENSES_DEFAULT);
     setPartnerActive(false);
     setPartnerHome(false);
+    setPickedPrivateSchool(false);
+    setLifestyleAdjustment(0);
+    setAnimatingYear(false);
+    setAnimFrame(0);
     setYearSummary(null);
     setMonthSummary(null);
+  }
+
+  function handleAllocChange(newAlloc) {
+    setLiveAlloc(newAlloc);
+  }
+
+  function handleLifestyleAdjust(delta) {
+    lifestyleAdjRef.current = delta;
+    setLifestyleAdjustment(delta);
   }
 
   function handleCrashConfirm({ moves, newByAsset }) {
@@ -1454,6 +1683,12 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
         setPartnerActive(false);
         setPartnerHome(true);
       }
+    }
+
+    // School choice (year 10) — track private school selection
+    if (activeEvent?.year === 10 && choice.isPrivateSchool) {
+      pickedPrivateSchoolRef.current = true;
+      setPickedPrivateSchool(true);
     }
 
     // Wedding (year 4) — activate partner income
@@ -1618,6 +1853,7 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
           currentYear={Math.floor(currentMonth / 12) + 1}
           hadDaycare={hadDaycareRef.current}
           partnerActive={partnerActive}
+          pickedPrivateSchool={pickedPrivateSchool}
           onConfirm={handleLifestyleConfirm}
         />
       )}
@@ -1672,6 +1908,29 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
             <div className="bg-indigo-500 h-2 rounded-full transition-all duration-500"
               style={{ width: `${(currentMonth / TOTAL_MONTHS) * 100}%` }} />
           </div>
+
+          {/* Year animation progress — shown while dripping monthly data */}
+          {animatingYear && (
+            <div className="bg-slate-800 text-white rounded-xl px-4 py-3 flex items-center justify-between gap-4">
+              <div className="flex-1">
+                <p className="text-xs font-semibold text-slate-300 mb-1">
+                  Year {Math.floor(currentMonth / 12)} unfolding… month {animFrame} of 12
+                </p>
+                <div className="w-full bg-slate-600 rounded-full h-1.5">
+                  <div
+                    className="bg-indigo-400 h-1.5 rounded-full transition-all duration-300"
+                    style={{ width: `${(animFrame / 12) * 100}%` }}
+                  />
+                </div>
+              </div>
+              <button
+                onClick={skipYearAnimation}
+                className="flex-shrink-0 text-xs text-slate-400 hover:text-white border border-slate-600 hover:border-slate-400 rounded-lg px-3 py-1.5 transition-colors"
+              >
+                Skip →
+              </button>
+            </div>
+          )}
 
           {/* Month summary card — shown between months 1–35 */}
           {phase === 'MONTH_SUMMARY' && monthSummary && (
@@ -1743,7 +2002,12 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
             cashDisplay={cashDisplay}
             partnerActive={partnerActive}
             partnerHome={partnerHome}
+            portfolioTotal={totalPortfolio(byAsset)}
+            liveAlloc={liveAlloc}
+            lifestyleAdjustment={lifestyleAdjustment}
             onContribChange={handleContribChange}
+            onAllocChange={handleAllocChange}
+            onLifestyleAdjust={handleLifestyleAdjust}
           />
         </div>
 

@@ -132,6 +132,7 @@ export const LIFESTYLE_EVENTS = [
       {
         label: 'Pay down credit card debt',
         emoji: '💳',
+        showIf: (s) => s.creditDebt > 0,
         monthlyContribDelta: 0,
         monthlyExpenseDelta: 0,
         cashImpact: 0,
@@ -240,6 +241,7 @@ export const LIFESTYLE_EVENTS = [
       {
         label: 'Pay down credit card debt',
         emoji: '💳',
+        showIf: (s) => s.creditDebt > 0,
         investLumpSum: 0,
         monthlyContribDelta: 0,
         monthlyExpenseDelta: 0,
@@ -329,6 +331,7 @@ export const LIFESTYLE_EVENTS = [
       {
         label: 'Pay down debt first',
         emoji: '💳',
+        showIf: (s) => s.creditDebt > 0,
         monthlyContribDelta: 0,
         monthlyExpenseDelta: 0,
         cashImpact: 0,
@@ -370,6 +373,7 @@ export const LIFESTYLE_EVENTS = [
       {
         label: 'Private school ($1,500/mo)',
         emoji: '📚',
+        isPrivateSchool: true,
         monthlyContribDelta: 0,
         monthlyExpenseDelta: +1500,
         cashImpact: 0,
@@ -452,6 +456,7 @@ export const LIFESTYLE_EVENTS = [
       {
         label: 'Invest more with freed-up childcare budget',
         emoji: '🚀',
+        showIf: (s) => !s.pickedPrivateSchool,
         monthlyContribDelta: +500,
         monthlyExpenseDelta: 0,
         cashImpact: 0,

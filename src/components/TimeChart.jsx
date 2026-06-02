@@ -53,8 +53,8 @@ export default function TimeChart({ data }) {
             wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
             formatter={(value) => {
               const labels = {
-                doNothing: 'Do nothing',
-                payDebtFirst: 'Pay debt first',
+                doNothing: 'Do nothing (bank account ~0.5%)',
+                payDebtFirst: 'Pay debt first, then invest',
                 investNow: 'Invest now',
               };
               return labels[value] || value;

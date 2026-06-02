@@ -1,63 +1,42 @@
 import { useState, useMemo } from 'react';
+import { computeTaxBreakdown } from '../data/taxConstants';
+import { CAREERS, HIGH_SAVER_RATE, LOW_SAVER_RATE } from '../data/careers';
 import { futureValue } from '../utils/finance';
 import { LineChart, Line, XAxis, YAxis, Tooltip as ReTooltip, ResponsiveContainer, Legend } from 'recharts';
 
-// ── Character profiles ────────────────────────────────────────────────────
-
-const PERSONAS = [
-  {
-    id: 'maya',
-    name: 'Maya',
-    job: 'Electrician',
-    color: '#6366f1',
-    startAge: 22,
-    monthlyAmount: 350,
-    story: 'Starts her union apprenticeship right after high school. No college debt. Saves $350/mo from day one.',
-    incomeNote: '~$58k starting, grows to $85k by 40',
-  },
-  {
-    id: 'sam',
-    name: 'Sam',
-    job: 'Elementary School Teacher',
-    color: '#10b981',
-    startAge: 22,
-    monthlyAmount: 200,
-    story: 'Gets a teaching degree, starts at $52k. Budget is tight but saves $200/mo consistently — always.',
-    incomeNote: '~$52k starting, grows to $68k by 40',
-  },
-  {
-    id: 'jordan',
-    name: 'Jordan',
-    job: 'Software Engineer',
-    color: '#f59e0b',
-    startAge: 32,
-    monthlyAmount: 600,
-    story: 'Earns $130k but lifestyle inflates fast in NYC. Doesn\'t get serious about saving until 32.',
-    incomeNote: '~$130k salary. Saves $600/mo starting at 32.',
-  },
-  {
-    id: 'alex',
-    name: 'Alex',
-    job: 'Physician',
-    color: '#ef4444',
-    startAge: 35,
-    monthlyAmount: 2000,
-    story: 'Med school + residency = 13 years of training and debt. Finally starts investing at 35 with a high salary.',
-    incomeNote: '~$280k salary. Saves $2,000/mo starting at 35.',
-  },
-];
-
 const RETIRE_AGE = 62;
+const START_CHART_AGE = 22;
+const ANNUAL_RATE = 0.07;
 
 function fmtK(n) {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
   return `$${Math.round(n / 1000)}k`;
 }
 
-function wealthAt(persona, age) {
-  if (age <= persona.startAge) return 0;
-  const years = age - persona.startAge;
-  return futureValue(persona.monthlyAmount, 0.07, years);
+// Compute full wealth timeline (ages 22–62) for a career × saver rate.
+// Before startAge: wealth = 0. After: variable contributions based on salary curve.
+function computeTimeline(career, saverRate) {
+  const monthlyRate = (1 + ANNUAL_RATE) ** (1 / 12) - 1;
+  let portfolio = 0;
+  const points = [];
+  for (let age = START_CHART_AGE; age <= RETIRE_AGE; age++) {
+    points.push({ age, wealth: Math.round(portfolio) });
+    if (age >= career.startAge && age < RETIRE_AGE) {
+      const yearIdx = Math.min(age - career.startAge, career.salaryByYear.length - 1);
+      const { takeHomeMonthly } = computeTaxBreakdown(career.salaryByYear[yearIdx]);
+      const mc = Math.round(takeHomeMonthly * saverRate);
+      for (let m = 0; m < 12; m++) {
+        portfolio = portfolio * (1 + monthlyRate) + mc;
+      }
+    }
+  }
+  return points;
+}
+
+function wealthAt62(career, saverRate) {
+  const yearIdx = Math.min(RETIRE_AGE - career.startAge, career.salaryByYear.length - 1);
+  if (yearIdx <= 0) return 0;
+  return computeTimeline(career, saverRate).at(-1)?.wealth ?? 0;
 }
 
 function CustomTooltip({ active, payload, label }) {
@@ -66,47 +45,47 @@ function CustomTooltip({ active, payload, label }) {
     <div className="bg-white border border-slate-200 rounded-lg p-3 shadow-sm text-xs space-y-1">
       <p className="font-semibold text-slate-700">Age {label}</p>
       {payload.map((p) => (
-        <p key={p.dataKey} style={{ color: p.color }}>{p.name}: {fmtK(p.value)}</p>
+        <p key={p.dataKey} style={{ color: p.color }}>
+          {p.name}: {fmtK(p.value)}
+        </p>
       ))}
     </div>
   );
 }
 
-// ── Persona card ──────────────────────────────────────────────────────────
-
-function PersonaCard({ persona, selected, onToggle, selectionCount }) {
-  const wealth = wealthAt(persona, RETIRE_AGE);
-  const yearsInvesting = RETIRE_AGE - persona.startAge;
-  const isDisabled = !selected && selectionCount >= 2;
+function CareerCard({ career, selected, onToggle, disabled, saverRate }) {
+  const wealth = useMemo(() => wealthAt62(career, saverRate), [career, saverRate]);
+  const monthlyAtPeak = useMemo(() => {
+    const peakSalary = career.salaryByYear[career.salaryByYear.length - 1];
+    const { takeHomeMonthly } = computeTaxBreakdown(peakSalary);
+    return Math.round(takeHomeMonthly * saverRate);
+  }, [career, saverRate]);
 
   return (
     <button
-      onClick={() => !isDisabled && onToggle(persona.id)}
-      disabled={isDisabled}
-      className={`w-full text-left rounded-xl border-2 p-4 transition-all ${
+      onClick={() => !disabled && onToggle(career.id)}
+      disabled={disabled}
+      className={`w-full text-left rounded-xl border-2 p-3 transition-all ${
         selected
-          ? 'border-2 bg-white shadow-md'
-          : isDisabled
+          ? 'bg-white shadow-md'
+          : disabled
           ? 'border-slate-200 bg-slate-50 opacity-40 cursor-not-allowed'
           : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm'
       }`}
-      style={selected ? { borderColor: persona.color } : {}}
+      style={selected ? { borderColor: career.color } : {}}
     >
       <div className="flex justify-between items-start gap-2">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: persona.color }} />
-            <p className="font-bold text-slate-900 text-sm">{persona.name}</p>
-            <span className="text-xs text-slate-500">{persona.job}</span>
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <span className="text-base">{career.icon}</span>
+            <p className="font-bold text-slate-900 text-sm">{career.label}</p>
           </div>
-          <p className="text-xs text-slate-500 mt-1 leading-snug">{persona.story}</p>
-          <p className="text-xs text-slate-400 mt-1">{persona.incomeNote}</p>
+          <p className="text-xs text-slate-500 leading-snug">{career.story}</p>
+          <p className="text-xs text-slate-400 mt-0.5">Starts investing at age {career.startAge}</p>
         </div>
         <div className="text-right flex-shrink-0">
-          <p className="text-xs text-slate-500">Starts saving</p>
-          <p className="font-bold text-slate-800">age {persona.startAge}</p>
-          <p className="text-xs text-slate-500 mt-1">${persona.monthlyAmount}/mo</p>
-          <p className="font-bold mt-1" style={{ color: persona.color }}>{fmtK(wealth)}</p>
+          <p className="text-xs text-slate-400">{career.salaryRange}</p>
+          <p className="font-bold mt-1" style={{ color: career.color }}>{fmtK(wealth)}</p>
           <p className="text-xs text-slate-400">at 62</p>
         </div>
       </div>
@@ -114,135 +93,178 @@ function PersonaCard({ persona, selected, onToggle, selectionCount }) {
   );
 }
 
-// ── Main component ────────────────────────────────────────────────────────
-
 export default function PersonaPaths({ onDone }) {
-  const [selected, setSelected] = useState(['maya', 'jordan']);
+  const [selected, setSelected] = useState(['educator', 'physician']);
+  const [saverMode, setSaverMode] = useState('mixed');
 
-  function togglePersona(id) {
+  // saverMode: 'high' | 'low' | 'mixed' (first=high, second=low)
+  function getSaverRateFor(careerIdx) {
+    if (saverMode === 'high') return HIGH_SAVER_RATE;
+    if (saverMode === 'low') return LOW_SAVER_RATE;
+    return careerIdx === 0 ? HIGH_SAVER_RATE : LOW_SAVER_RATE;
+  }
+
+  function toggleCareer(id) {
     setSelected((prev) =>
       prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id].slice(-2)
     );
   }
 
-  const selectedPersonas = PERSONAS.filter((p) => selected.includes(p.id));
+  const selectedCareers = selected.map((id) => CAREERS.find((c) => c.id === id)).filter(Boolean);
 
-  // Build chart data: age 22 → 62
-  const ages = Array.from({ length: 41 }, (_, i) => 22 + i);
-  const chartData = useMemo(() =>
-    ages.map((age) => {
+  // Chart data: age 22–62
+  const chartData = useMemo(() => {
+    const timelines = selectedCareers.map((career, i) => computeTimeline(career, getSaverRateFor(i)));
+    return Array.from({ length: RETIRE_AGE - START_CHART_AGE + 1 }, (_, i) => {
+      const age = START_CHART_AGE + i;
       const point = { age };
-      selectedPersonas.forEach((p) => {
-        point[p.name] = Math.round(wealthAt(p, age));
+      selectedCareers.forEach((career, ci) => {
+        const key = `${career.label}${saverMode === 'mixed' ? (ci === 0 ? ' (H)' : ' (L)') : ''}`;
+        point[key] = timelines[ci][i]?.wealth ?? 0;
       });
       return point;
-    }), [selected]
-  );
+    });
+  }, [selected, saverMode]);
 
   // Comparison callout
-  const [p1, p2] = selectedPersonas;
   const callout = useMemo(() => {
-    if (!p1 || !p2) return null;
-    const w1 = wealthAt(p1, RETIRE_AGE);
-    const w2 = wealthAt(p2, RETIRE_AGE);
-    const [winner, loser] = w1 >= w2 ? [p1, p2] : [p2, p1];
-    const wWin = Math.max(w1, w2);
-    const wLose = Math.min(w1, w2);
-    const startDiff = Math.abs(p1.startAge - p2.startAge);
-    const amtDiff = Math.abs(p1.monthlyAmount - p2.monthlyAmount);
-    const higherEarner = p1.monthlyAmount > p2.monthlyAmount ? p1 : p2;
-    const earlierStarter = p1.startAge < p2.startAge ? p1 : p2;
+    if (selectedCareers.length !== 2) return null;
+    const [c0, c1] = selectedCareers;
+    const w0 = wealthAt62(c0, getSaverRateFor(0));
+    const w1 = wealthAt62(c1, getSaverRateFor(1));
+    const [winner, loser] = w0 >= w1 ? [c0, c1] : [c1, c0];
+    const [wWin, wLose] = w0 >= w1 ? [w0, w1] : [w1, w0];
+    const winnerIdx = w0 >= w1 ? 0 : 1;
+    const loserIdx = 1 - winnerIdx;
+    const winnerMode = getSaverRateFor(winnerIdx) === HIGH_SAVER_RATE ? 'high saver' : 'low saver';
+    const loserMode = getSaverRateFor(loserIdx) === HIGH_SAVER_RATE ? 'high saver' : 'low saver';
+    const startDiff = Math.abs(c0.startAge - c1.startAge);
 
-    if (earlierStarter.id === winner.id && startDiff >= 5) {
+    if (startDiff >= 4 && winner.startAge < loser.startAge) {
       return {
-        headline: `${winner.name} wins — by starting ${startDiff} years earlier.`,
-        body: `${loser.name} saves $${loser.monthlyAmount}/mo. ${winner.name} saves $${winner.monthlyAmount}/mo. At 62: ${winner.name} has ${fmtK(wWin)}, ${loser.name} has ${fmtK(wLose)}. Time beats money.`,
-        color: winner.color,
-      };
-    }
-    if (higherEarner.id !== winner.id) {
-      return {
-        headline: `${winner.name} wins — despite saving less per month.`,
-        body: `${loser.name} saves $${loser.monthlyAmount}/mo but started at ${loser.startAge}. ${winner.name} saves $${winner.monthlyAmount}/mo but started at ${winner.startAge}. Starting early made the difference: ${fmtK(wWin)} vs ${fmtK(wLose)}.`,
+        headline: `${winner.label} (${winnerMode}) wins — starts ${startDiff} years earlier.`,
+        body: `${loser.label} earns more, but starting at ${loser.startAge} vs ${winner.startAge} is an enormous disadvantage. At 62: ${fmtK(wWin)} vs ${fmtK(wLose)}. Time beats income.`,
         color: winner.color,
       };
     }
     return {
-      headline: `${winner.name}: ${fmtK(wWin)} · ${loser.name}: ${fmtK(wLose)} at age 62`,
-      body: `${winner.name} saves $${winner.monthlyAmount}/mo from ${winner.startAge}. ${loser.name} saves $${loser.monthlyAmount}/mo from ${loser.startAge}.`,
+      headline: `${winner.label} (${winnerMode}): ${fmtK(wWin)} · ${loser.label} (${loserMode}): ${fmtK(wLose)} at 62`,
+      body: `${winner.label} starts at ${winner.startAge}. ${loser.label} starts at ${loser.startAge}.`,
       color: winner.color,
     };
-  }, [selected]);
+  }, [selected, saverMode]);
+
+  const chartKeys = selectedCareers.map((career, ci) => ({
+    key: `${career.label}${saverMode === 'mixed' ? (ci === 0 ? ' (H)' : ' (L)') : ''}`,
+    color: career.color,
+  }));
 
   return (
-    <div className="space-y-5">
-      {/* "How little you need" banner */}
+    <div className="space-y-4">
+      {/* Banner */}
       <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
-        <p className="text-sm font-bold text-indigo-900">How little do you actually need to save?</p>
+        <p className="text-sm font-bold text-indigo-900">Time beats money — every time.</p>
         <p className="text-sm text-indigo-700 mt-1">
-          <span className="font-bold">$5/day = $150/month.</span>
-          {' '}Invested from age 22 at 7%:{' '}
-          <span className="font-bold">{fmtK(futureValue(150, 0.07, 40))} by age 62.</span>
+          <span className="font-bold">$150/month from age 22 at 7% real = {fmtK(futureValue(150, 0.07, 40))}</span> at 62.
         </p>
         <p className="text-xs text-indigo-500 mt-1">
-          That's less than a daily latte ($6.50 avg in NYC). The amount matters less than starting.
+          Less than a daily coffee ($6.50 avg NYC). The amount matters less than starting.
         </p>
       </div>
 
-      {/* Section header */}
+      {/* Header */}
       <div>
-        <p className="text-sm font-bold text-slate-800">Compare two paths</p>
-        <p className="text-xs text-slate-500 mt-0.5">Select any 2 people below. All invest in a 7% index fund.</p>
+        <p className="text-sm font-bold text-slate-800">Pick two careers to compare</p>
+        <p className="text-xs text-slate-500 mt-0.5">
+          All invest in a 7% real index fund (10% nominal − 3% inflation). Values in today's dollars.
+        </p>
       </div>
 
-      {/* Persona cards */}
+      {/* Saver mode toggle */}
+      <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+        <p className="text-xs font-semibold text-slate-600">Saver type</p>
+        <div className="grid grid-cols-3 gap-1.5">
+          {[
+            { id: 'mixed', label: 'Mixed', sub: '1st: high · 2nd: low' },
+            { id: 'high',  label: 'Both high savers', sub: '20% of take-home' },
+            { id: 'low',   label: 'Both low savers', sub: '5% of take-home' },
+          ].map((opt) => (
+            <button
+              key={opt.id}
+              onClick={() => setSaverMode(opt.id)}
+              className={`rounded-lg py-2 px-2 text-center text-xs font-semibold border transition-all ${
+                saverMode === opt.id ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300'
+              }`}
+            >
+              <div className="leading-tight">{opt.label}</div>
+              <div className={`text-xs mt-0.5 leading-tight ${saverMode === opt.id ? 'text-indigo-200' : 'text-slate-400'}`}>{opt.sub}</div>
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-slate-400">
+          "Mixed" shows the most powerful lesson: a high-saving lower-earner vs. a low-saving high-earner.
+        </p>
+      </div>
+
+      {/* Career cards */}
       <div className="space-y-2">
-        {PERSONAS.map((p) => (
-          <PersonaCard
-            key={p.id}
-            persona={p}
-            selected={selected.includes(p.id)}
-            onToggle={togglePersona}
-            selectionCount={selected.length}
+        {CAREERS.map((career) => (
+          <CareerCard
+            key={career.id}
+            career={career}
+            selected={selected.includes(career.id)}
+            onToggle={toggleCareer}
+            disabled={!selected.includes(career.id) && selected.length >= 2}
+            saverRate={(() => {
+              const idx = selected.indexOf(career.id);
+              if (idx === -1) return getSaverRateFor(0);
+              return getSaverRateFor(idx);
+            })()}
           />
         ))}
       </div>
 
       {/* Chart */}
-      {selectedPersonas.length === 2 && (
+      {selectedCareers.length === 2 && (
         <>
           <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                <XAxis dataKey="age" tickFormatter={(a) => `${a}`} tick={{ fontSize: 10 }} label={{ value: 'Age', position: 'insideBottomRight', offset: -4, fontSize: 10 }} />
-                <YAxis tickFormatter={(v) => fmtK(v)} tick={{ fontSize: 10 }} width={44} />
+                <XAxis dataKey="age" tick={{ fontSize: 10 }} label={{ value: 'Age', position: 'insideBottomRight', offset: -4, fontSize: 10 }} />
+                <YAxis tickFormatter={(v) => fmtK(v)} tick={{ fontSize: 10 }} width={48} />
                 <ReTooltip content={<CustomTooltip />} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
-                {selectedPersonas.map((p) => (
-                  <Line
-                    key={p.id}
-                    type="monotone"
-                    dataKey={p.name}
-                    stroke={p.color}
-                    strokeWidth={2.5}
-                    dot={false}
-                  />
+                {chartKeys.map((ck) => (
+                  <Line key={ck.key} type="monotone" dataKey={ck.key} stroke={ck.color} strokeWidth={2.5} dot={false} />
                 ))}
               </LineChart>
             </ResponsiveContainer>
           </div>
 
-          {/* Callout */}
           {callout && (
             <div className="rounded-xl p-4 border-l-4 bg-slate-50" style={{ borderColor: callout.color }}>
               <p className="text-sm font-bold text-slate-900">{callout.headline}</p>
               <p className="text-xs text-slate-600 mt-1">{callout.body}</p>
             </div>
           )}
+
+          {/* RSU note for relevant careers */}
+          {selectedCareers.some((c) => c.RSU || c.bonusHeavy) && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+              <p className="text-xs text-amber-800">
+                <strong>Note on finance/tech careers:</strong> RSUs and bonuses are included in salary curves above, but create concentration risk — all eggs in one basket.{' '}
+                JL Collins' advice: sell RSUs immediately when they vest, buy index fund. Concentration is how fortunes are lost, not built.
+              </p>
+            </div>
+          )}
         </>
       )}
 
-      {/* Transition to custom simulator */}
+      <p className="text-xs text-center text-slate-400 px-4">
+        All values in today's purchasing power (7% real = 10% nominal − 3% inflation). Salary curves are pedagogically approximate.
+      </p>
+
+      {/* Transition */}
       <div className="border-t border-slate-200 pt-4">
         <p className="text-xs text-slate-500 text-center mb-3">
           Now plug in your own numbers — from your 10th grade budget.

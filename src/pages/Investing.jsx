@@ -4,7 +4,10 @@ import InvestingFlow from '../components/InvestingFlow';
 export default function Investing() {
   const navigate = useNavigate();
   const location = useLocation();
-  const budgetSurplus = location.state?.budgetSurplus ?? null;
+  const budgetSurplus      = location.state?.budgetSurplus      ?? null;
+  const budgetTotalSpent   = location.state?.budgetTotalSpent   ?? null;
+  const budgetHealthTier   = location.state?.budgetHealthTier   ?? null;
+  const happinessScore     = location.state?.happinessScore     ?? null;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -17,7 +20,12 @@ export default function Investing() {
           <h1 className="text-base font-bold text-slate-900 leading-tight">Compound Interest & Investing</h1>
         </div>
       </header>
-      <InvestingFlow budgetSurplus={budgetSurplus} />
+      <InvestingFlow
+        budgetSurplus={budgetSurplus}
+        budgetTotalSpent={budgetTotalSpent}
+        budgetHealthTier={budgetHealthTier}
+        happinessScore={happinessScore}
+      />
     </div>
   );
 }

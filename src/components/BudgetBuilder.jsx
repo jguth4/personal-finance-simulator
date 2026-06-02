@@ -42,6 +42,7 @@ function Remaining({ remaining }) {
 }
 
 function CategoryRow({ category, selectedTier, onChange }) {
+  const activeTier = category.tiers[selectedTier];
   return (
     <div className="px-4 py-3 border-b border-slate-100 last:border-0">
       <div className="flex items-center mb-2">
@@ -75,6 +76,9 @@ function CategoryRow({ category, selectedTier, onChange }) {
           );
         })}
       </div>
+      {activeTier?.happinessNote && (
+        <p className="text-xs text-slate-400 italic mt-1.5 px-0.5">{activeTier.happinessNote}</p>
+      )}
     </div>
   );
 }

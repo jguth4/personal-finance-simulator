@@ -17,6 +17,23 @@ export function debtPayoffMonths(balance, annualRate, monthlyPayment) {
   return Math.ceil(Math.log(monthlyPayment / (monthlyPayment - balance * r)) / Math.log(1 + r));
 }
 
+// Wealth from variable annual contributions, each compounding for remaining years.
+// monthlyContribsByYear: array where index = career year (0-based), value = $/mo invested.
+// Contributions after the array end use the last value.
+export function wealthAtVariableContribs(monthlyContribsByYear, annualRate, totalYears) {
+  if (totalYears <= 0 || monthlyContribsByYear.length === 0) return 0;
+  const monthlyRate = (1 + annualRate) ** (1 / 12) - 1;
+  let portfolio = 0;
+  for (let year = 0; year < totalYears; year++) {
+    const idx = Math.min(year, monthlyContribsByYear.length - 1);
+    const mc = monthlyContribsByYear[idx];
+    for (let m = 0; m < 12; m++) {
+      portfolio = portfolio * (1 + monthlyRate) + mc;
+    }
+  }
+  return Math.round(portfolio);
+}
+
 // 30-year opportunity cost of spending $delta/month above the benchmark.
 // Hardcoded at 7% / 30 years for consistent apples-to-apples comparison across all categories.
 // Source: S&P 500 historical average total return, inflation-adjusted (CRSP data)

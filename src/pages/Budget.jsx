@@ -7,7 +7,7 @@ import BudgetBuilder from '../components/BudgetBuilder';
 import BudgetResultCard from '../components/BudgetResultCard';
 import LifestyleInflation from '../components/LifestyleInflation';
 import { generateBudget, mapToSelections } from '../utils/generateBudget';
-import { CATEGORIES, DEFAULT_SELECTIONS } from '../data/categories';
+import { CATEGORIES, DEFAULT_SELECTIONS, computeHappinessScore } from '../data/categories';
 import { TAKE_HOME_MONTHLY } from '../data/taxConstants';
 
 const STEPS = {
@@ -24,12 +24,15 @@ const STEP_KEYS = [
   STEPS.SANDBOX, STEPS.RESULT, STEPS.LIFESTYLE,
 ];
 
-function computeSurplus(selections) {
+function computeTotals(selections) {
   const totalSpent = CATEGORIES.reduce(
     (sum, cat) => sum + cat.tiers[selections[cat.id]].amount,
     0
   );
-  return Math.max(0, TAKE_HOME_MONTHLY - totalSpent);
+  return {
+    totalSpent,
+    surplus: Math.max(0, TAKE_HOME_MONTHLY - totalSpent),
+  };
 }
 
 export default function Budget() {
@@ -39,6 +42,16 @@ export default function Budget() {
   const [generatedBudget,  setGeneratedBudget]  = useState(null);
   const [selections,       setSelections]       = useState({ ...DEFAULT_SELECTIONS });
   const navigate = useNavigate();
+
+  function getNavState() {
+    const { totalSpent, surplus } = computeTotals(selections);
+    return {
+      budgetSurplus:    surplus,
+      budgetTotalSpent: totalSpent,
+      happinessScore:   computeHappinessScore(selections),
+      budgetHealthTier: selections.health ?? 1,
+    };
+  }
 
   function handleHousingComplete(answers) {
     setHousingAnswers(answers);
@@ -134,8 +147,8 @@ export default function Budget() {
 
       {step === STEPS.LIFESTYLE && (
         <LifestyleInflation
-          budgetSurplus={computeSurplus(selections)}
-          onFinish={() => navigate('/investing', { state: { budgetSurplus: computeSurplus(selections) } })}
+          budgetSurplus={computeTotals(selections).surplus}
+          onFinish={() => navigate('/investing', { state: getNavState() })}
         />
       )}
     </div>

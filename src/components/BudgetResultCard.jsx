@@ -1,4 +1,4 @@
-import { CATEGORIES } from '../data/categories';
+import { CATEGORIES, computeHappinessScore } from '../data/categories';
 import { TAKE_HOME_MONTHLY } from '../data/taxConstants';
 import { PieChart, Pie, Cell, Tooltip as ReTooltip, ResponsiveContainer } from 'recharts';
 
@@ -13,6 +13,8 @@ function fmt(n) {
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 }
 
+const HAPPINESS_LABELS = ['', 'Very stressed', 'Stressed', 'Limited', 'Constrained', 'Okay', 'Comfortable', 'Good', 'Very good', 'Excellent', 'Thriving'];
+
 export default function BudgetResultCard({ selections, onReset, onInvesting }) {
   const items = CATEGORIES.map((cat, i) => ({
     name: cat.name,
@@ -23,6 +25,7 @@ export default function BudgetResultCard({ selections, onReset, onInvesting }) {
   const totalSpent = items.reduce((s, i) => s + i.value, 0);
   const surplus = TAKE_HOME_MONTHLY - totalSpent;
   const isOver = surplus < 0;
+  const happinessScore = computeHappinessScore(selections);
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
@@ -110,6 +113,32 @@ export default function BudgetResultCard({ selections, onReset, onInvesting }) {
         })}
       </div>
 
+      {/* Life Satisfaction Index */}
+      <div className="bg-violet-50 border border-violet-200 rounded-xl p-4">
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <p className="text-violet-900 font-semibold text-sm">Life Satisfaction Index</p>
+            <p className="text-violet-600 text-xs">Based on your spending choices</p>
+          </div>
+          <div className="text-right">
+            <span className="text-3xl font-bold text-violet-700">{happinessScore}</span>
+            <span className="text-violet-500 text-lg">/10</span>
+          </div>
+        </div>
+        <div className="w-full bg-violet-100 rounded-full h-2 mb-2">
+          <div
+            className="h-2 rounded-full bg-violet-500 transition-all duration-500"
+            style={{ width: `${happinessScore * 10}%` }}
+          />
+        </div>
+        <p className="text-violet-700 text-xs font-medium">{HAPPINESS_LABELS[happinessScore] ?? ''}</p>
+        <p className="text-slate-400 text-xs mt-1.5 leading-relaxed">
+          Notice that choosing all-Budget doesn't maximize savings <em>and</em> happiness — financial security (emergency fund, no debt) scores highest.
+          Spending on experiences outscores spending on stuff. Source: Killingsworth (2021),{' '}
+          <em>PNAS</em>.
+        </p>
+      </div>
+
       {!isOver && surplus > 0 && (
         <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 text-center">
           <p className="text-indigo-800 text-sm font-medium">
@@ -129,7 +158,7 @@ export default function BudgetResultCard({ selections, onReset, onInvesting }) {
           Start over
         </button>
         <button
-          onClick={() => onInvesting(surplus)}
+          onClick={() => onInvesting(surplus, happinessScore, totalSpent)}
           className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl text-sm transition-colors"
         >
           Continue →

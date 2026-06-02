@@ -52,6 +52,26 @@ function nycTax(gross) {
   ]);
 }
 
+// ── Marginal rate helper ──────────────────────────────────────────────────
+
+function federalMarginalRate(taxable) {
+  const brackets = [
+    [0.10,  12000], [0.12,  49000], [0.22, 104000],
+    [0.24, 201000], [0.32, 245000], [0.35, 609000], [0.37, Infinity],
+  ];
+  for (const [rate, ceiling] of brackets) {
+    if (taxable <= ceiling) return rate;
+  }
+  return 0.37;
+}
+
+// ── Contribution limits (2025) ────────────────────────────────────────────
+export const CONTRIBUTION_LIMITS = {
+  ROTH_IRA_ANNUAL:          7000,
+  TRADITIONAL_401K_ANNUAL: 23500,
+  HSA_INDIVIDUAL_ANNUAL:    4300,
+};
+
 // ── Main export: compute full breakdown for any gross salary ──────────────
 
 export function computeTaxBreakdown(grossAnnual) {
@@ -63,12 +83,20 @@ export function computeTaxBreakdown(grossAnnual) {
   const totalTax     = federal + nyState + nyc + ss + medicare;
   const takeHome     = grossAnnual - totalTax;
 
+  const federalTaxable = Math.max(0, grossAnnual - 15000);
+  const marginalFederal = federalMarginalRate(federalTaxable);
+  const effectiveFederal = grossAnnual > 0 ? federal / grossAnnual : 0;
+  const effectiveCombined = grossAnnual > 0 ? totalTax / grossAnnual : 0;
+
   return {
     grossAnnual,
-    grossMonthly:     Math.round(grossAnnual / 12),
-    takeHomeAnnual:   takeHome,
-    takeHomeMonthly:  Math.round(takeHome / 12),
-    totalTaxAnnual:   totalTax,
+    grossMonthly:       Math.round(grossAnnual / 12),
+    takeHomeAnnual:     takeHome,
+    takeHomeMonthly:    Math.round(takeHome / 12),
+    totalTaxAnnual:     totalTax,
+    marginalFederal,
+    effectiveFederal:   Math.round(effectiveFederal * 1000) / 1000,
+    effectiveCombined:  Math.round(effectiveCombined * 1000) / 1000,
     breakdown: [
       {
         label: 'Federal income tax',
@@ -112,3 +140,6 @@ export const TAX_BREAKDOWN      = _default.breakdown;
 export const TOTAL_TAX_ANNUAL   = _default.totalTaxAnnual;
 export const TAKE_HOME_ANNUAL   = _default.takeHomeAnnual;
 export const TAKE_HOME_MONTHLY  = _default.takeHomeMonthly;
+export const MARGINAL_FEDERAL   = _default.marginalFederal;
+export const EFFECTIVE_FEDERAL  = _default.effectiveFederal;
+export const EFFECTIVE_COMBINED = _default.effectiveCombined;

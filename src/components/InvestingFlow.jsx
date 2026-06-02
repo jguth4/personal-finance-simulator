@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
-import { TAKE_HOME_MONTHLY } from '../data/taxConstants';
+import { useNavigate } from 'react-router-dom';
+import { TAKE_HOME_MONTHLY, CONTRIBUTION_LIMITS } from '../data/taxConstants';
 import { futureValue, debtPayoffMonths } from '../utils/finance';
 import TimeChart from './TimeChart';
 import Tooltip from './Tooltip';
@@ -78,7 +79,8 @@ function ChapterHeader({ num, title, subtitle }) {
   );
 }
 
-export default function InvestingFlow({ budgetSurplus }) {
+export default function InvestingFlow({ budgetSurplus, budgetTotalSpent, budgetHealthTier }) {
+  const navigate = useNavigate();
   // ── Chapter progression ──────────────────────────────────────────────────
   const [chapter, setChapter] = useState(1);
   const [ch2Unlocked, setCh2Unlocked] = useState(false);
@@ -194,9 +196,13 @@ export default function InvestingFlow({ budgetSurplus }) {
 
       {budgetSurplus !== null && budgetSurplus > 0 && (
         <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 mb-5">
-          <p className="text-emerald-800 text-sm font-medium">
-            You built <span className="font-bold">{fmtFull(budgetSurplus)}/mo</span> in surplus from your 10th grade budget — that's your starting investment amount.
-          </p>
+          <p className="text-emerald-800 text-sm font-semibold mb-1">From your Grade 10 budget</p>
+          <div className="flex gap-4 text-sm text-emerald-800">
+            <span>Take-home: <strong>{fmtFull(TAKE_HOME_MONTHLY)}/mo</strong></span>
+            {budgetTotalSpent != null && <span>Spending: <strong>{fmtFull(budgetTotalSpent)}/mo</strong></span>}
+            <span>Surplus: <strong>{fmtFull(budgetSurplus)}/mo ← your investing amount</strong></span>
+          </div>
+          <p className="text-emerald-600 text-xs mt-1">This is your actual money, not a hypothetical.</p>
         </div>
       )}
       {budgetSurplus !== null && budgetSurplus <= 0 && (
@@ -247,13 +253,13 @@ export default function InvestingFlow({ budgetSurplus }) {
                 <p className="text-xs font-semibold text-emerald-700 mb-1">Start at 22</p>
                 <p className="text-3xl font-bold text-emerald-700">{fmt(ch1StartNow)}</p>
                 <p className="text-xs text-emerald-600 mt-1">at age {22 + horizon}</p>
-                <p className="text-xs text-emerald-500 mt-0.5">{fmtFull(surplus)}/mo · {horizon} years · 7% real</p>
+                <p className="text-xs text-emerald-500 mt-0.5">{fmtFull(surplus)}/mo · {horizon} yrs · 7% real (10% nominal)</p>
               </div>
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center">
                 <p className="text-xs font-semibold text-slate-500 mb-1">Wait until 32</p>
                 <p className="text-3xl font-bold text-slate-500">{fmt(ch1WaitTen)}</p>
                 <p className="text-xs text-slate-400 mt-1">at age {22 + horizon}</p>
-                <p className="text-xs text-slate-400 mt-0.5">{fmtFull(surplus)}/mo · {horizon - 10} years · 7% real</p>
+                <p className="text-xs text-slate-400 mt-0.5">{fmtFull(surplus)}/mo · {horizon - 10} yrs · 7% real (10% nominal)</p>
               </div>
             </div>
 
@@ -269,7 +275,7 @@ export default function InvestingFlow({ budgetSurplus }) {
             )}
 
             <div className="text-xs text-slate-400 bg-slate-50 rounded-lg px-3 py-2">
-              <strong className="text-slate-600">Why 7%?</strong> The US stock market returns ~10%/yr in dollar terms (nominal). Inflation erodes ~3%/yr. So your real purchasing power grows at ~7%/yr. Every dollar shown above is in <em>today's</em> purchasing power — not inflated-away future dollars.
+              <strong className="text-slate-600">Why 7% real (10% nominal)?</strong> The US stock market returns ~10%/yr in nominal (dollar) terms — this is the number you'll hear most often. Inflation erodes ~3%/yr. So your real purchasing power grows at ~7%/yr. Every dollar shown above is in <em>today's</em> purchasing power — already inflation-adjusted. Source: CRSP historical S&P 500 total return, 1926–2023.
             </div>
 
             <div className="pt-1 space-y-2">
@@ -291,8 +297,8 @@ export default function InvestingFlow({ budgetSurplus }) {
             <div className="bg-white border-2 border-purple-200 rounded-2xl p-5 space-y-4 mb-5">
               <ChapterHeader
                 num={2}
-                title="What if you saved more?"
-                subtitle="Adjust your monthly investment. See how small changes compound."
+                title="How much you invest matters — but less than when you start"
+                subtitle="Drag the slider. Notice that doubling your monthly amount exactly doubles the final number. Time is the non-linear variable, not dollars."
               />
 
               {/* Surplus slider */}
@@ -368,6 +374,20 @@ export default function InvestingFlow({ budgetSurplus }) {
                 <h3 className="text-lg font-bold text-slate-900">Fees, account type, and what you invest in</h3>
                 <p className="text-sm text-slate-500 mt-0.5">Make all three selections to see your personalized outcome.</p>
               </div>
+              {ch3Complete && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-emerald-900 font-semibold text-sm">Ready for the investing simulator?</p>
+                    <p className="text-emerald-600 text-xs mt-0.5">Apply everything you've learned — 20 real years of market history.</p>
+                  </div>
+                  <button
+                    onClick={() => navigate('/simulation', { state: { budgetSurplus: surplus } })}
+                    className="flex-shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg text-sm transition-colors"
+                  >
+                    Go to Simulator →
+                  </button>
+                </div>
+              )}
 
               {/* Two-column layout on lg+ screens */}
               <div className="flex flex-col lg:flex-row gap-5">
@@ -475,25 +495,69 @@ export default function InvestingFlow({ budgetSurplus }) {
                     <p className="text-sm font-semibold text-slate-800 flex items-center">
                       Account type
                       {accountType === null && <span className="ml-2 text-xs font-normal text-amber-600">← choose one</span>}
-                      <Tooltip text="Where you invest matters for taxes. Roth: pay taxes now, never again. Traditional 401k: defer taxes, pay later at withdrawal. At 22, Roth is almost always better — you're in your lowest tax bracket ever." />
+                      <Tooltip text="Where you invest matters for taxes. Roth: post-tax dollars in, tax-free growth forever. Traditional 401k: pre-tax dollars in, taxed at withdrawal. At 22 you're in your lowest tax bracket ever — Roth is almost always better." />
                     </p>
-                    <div className="grid grid-cols-3 gap-1.5">
+                    <div className="grid grid-cols-2 gap-1.5">
                       {[
-                        { id: 'roth', label: 'Roth IRA', note: 'Tax-free forever' },
-                        { id: 'traditional', label: 'Traditional 401k', note: '~75% after taxes' },
-                        { id: 'taxable', label: 'Taxable brokerage', note: '~85% after gains tax' },
-                      ].map((opt) => (
-                        <button key={opt.id} onClick={() => setAccountType(opt.id)}
-                          className={`rounded-lg py-2 px-1 text-center text-xs font-semibold border transition-all ${accountType === opt.id ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300'}`}>
-                          <div className="leading-tight">{opt.label}</div>
-                          <div className={`text-xs mt-0.5 ${accountType === opt.id ? 'text-indigo-200' : 'text-slate-400'}`}>{opt.note}</div>
-                        </button>
-                      ))}
+                        { id: 'roth',        label: 'Roth IRA',           note: 'Post-tax in · tax-free forever', limit: CONTRIBUTION_LIMITS.ROTH_IRA_ANNUAL },
+                        { id: 'traditional', label: 'Traditional 401(k)', note: 'Pre-tax in · taxed at withdrawal', limit: CONTRIBUTION_LIMITS.TRADITIONAL_401K_ANNUAL },
+                        { id: 'hsa',         label: 'HSA',                note: 'Triple tax advantage', limit: CONTRIBUTION_LIMITS.HSA_INDIVIDUAL_ANNUAL, requiresHDHP: true },
+                        { id: 'taxable',     label: 'Taxable brokerage',  note: 'Post-tax in · gains taxed', limit: null },
+                      ].map((opt) => {
+                        const isHDHPAvailable = budgetHealthTier === 0;
+                        const disabled = opt.requiresHDHP && !isHDHPAvailable;
+                        return (
+                          <button
+                            key={opt.id}
+                            onClick={() => !disabled && setAccountType(opt.id)}
+                            disabled={disabled}
+                            className={`rounded-lg py-2 px-2 text-center text-xs font-semibold border transition-all ${
+                              accountType === opt.id
+                                ? 'bg-indigo-600 text-white border-indigo-600'
+                                : disabled
+                                ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed'
+                                : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300'
+                            }`}
+                          >
+                            <div className="leading-tight">{opt.label}</div>
+                            <div className={`text-xs mt-0.5 leading-tight ${accountType === opt.id ? 'text-indigo-200' : disabled ? 'text-slate-300' : 'text-slate-400'}`}>
+                              {disabled ? 'Requires HDHP plan' : opt.note}
+                            </div>
+                            {opt.limit && !disabled && (
+                              <div className={`text-xs mt-0.5 ${accountType === opt.id ? 'text-indigo-300' : 'text-slate-300'}`}>
+                                Limit: {fmtFull(opt.limit)}/yr
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
+
+                    {/* Contribution limit warning */}
+                    {accountType && (() => {
+                      const limits = {
+                        roth: CONTRIBUTION_LIMITS.ROTH_IRA_ANNUAL,
+                        traditional: CONTRIBUTION_LIMITS.TRADITIONAL_401K_ANNUAL,
+                        hsa: CONTRIBUTION_LIMITS.HSA_INDIVIDUAL_ANNUAL,
+                      };
+                      const limit = limits[accountType];
+                      if (!limit) return null;
+                      const annual = surplus * 12;
+                      if (annual > limit) {
+                        return (
+                          <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-800">
+                            {fmtFull(surplus)}/mo × 12 = <strong>{fmtFull(annual)}/yr</strong> — above the{' '}
+                            {accountType === 'roth' ? 'Roth IRA' : accountType === 'traditional' ? '401(k)' : 'HSA'}{' '}
+                            limit of <strong>{fmtFull(limit)}/yr</strong>. In real life, excess would go to a taxable brokerage account.
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
 
                     {accountType === 'roth' && (
                       <p className="text-xs text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2">
-                        At 22 you're likely in your lowest tax bracket ever. Roth means you pay taxes <strong>now</strong> and <strong>never again</strong> — not on a single dollar of growth over {horizon} years.
+                        You pay taxes on contributions <strong>now</strong> — at your current (likely lowest-ever) bracket. Every dollar of growth is yours, tax-free, forever. No tax on withdrawal, ever.
                       </p>
                     )}
                     {accountType === 'traditional' && (
@@ -502,7 +566,7 @@ export default function InvestingFlow({ budgetSurplus }) {
                           <div>
                             <p className="text-xs text-emerald-700 font-semibold">Roth (pay now)</p>
                             <p className="text-lg font-bold text-emerald-700">{fmt(rothValue)}</p>
-                            <p className="text-xs text-emerald-600">tax-free at 62</p>
+                            <p className="text-xs text-emerald-600">100% yours at 62</p>
                           </div>
                           <div>
                             <p className="text-xs text-amber-700 font-semibold">Traditional (pay later)</p>
@@ -511,13 +575,20 @@ export default function InvestingFlow({ budgetSurplus }) {
                           </div>
                         </div>
                         <p className="text-xs text-amber-700 text-center pt-1 border-t border-amber-200">
-                          The IRS collects <strong>{fmt(rothValue - traditionalValue)}</strong> at withdrawal. With Roth, you already paid — and kept the difference.
+                          The IRS collects <strong>{fmt(rothValue - traditionalValue)}</strong> at withdrawal. You deferred taxes today but owe them later — at whatever your bracket is then.
                         </p>
                       </div>
                     )}
+                    {accountType === 'hsa' && (
+                      <p className="text-xs text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2">
+                        <strong>Triple tax advantage:</strong> Pre-tax contributions → tax-free growth → tax-free withdrawals for medical. JL Collins calls this the best retirement account in America. After 65, non-medical withdrawals taxed like Traditional 401k.
+                        2025 limit: {fmtFull(CONTRIBUTION_LIMITS.HSA_INDIVIDUAL_ANNUAL)}/yr.
+                      </p>
+                    )}
                     {accountType === 'taxable' && (
                       <p className="text-xs text-slate-600 bg-slate-50 rounded-lg px-3 py-2">
-                        A regular brokerage account. No contribution limits, but gains are taxed. Good for saving beyond IRA/401k limits.
+                        Post-tax contributions. No annual limits — good for saving beyond IRA/401k limits.
+                        Long-term capital gains taxed at 0%, 15%, or 20% when you sell (0% if income &lt; ~$47k/yr, 15% for most, 20% for high earners).
                       </p>
                     )}
                   </div>
@@ -539,10 +610,16 @@ export default function InvestingFlow({ budgetSurplus }) {
                       className="w-full accent-red-500"
                     />
                     {debtBalance > 0 && (
-                      <div className="bg-red-50 border border-red-200 rounded-lg p-2 text-xs text-red-700 space-y-0.5">
-                        <p>💸 Monthly interest: <strong>{fmtFull(Math.round(monthlyInterest))}</strong> just to stand still</p>
+                      <div className="bg-red-50 border-2 border-red-300 rounded-lg p-3 text-xs text-red-800 space-y-1.5">
+                        <p className="font-bold text-red-900">
+                          STOP: {debtRate * 100 === Math.round(debtRate * 100) ? debtRate * 100 : (debtRate * 100).toFixed(1)}% APR = a guaranteed {debtRate * 100 === Math.round(debtRate * 100) ? debtRate * 100 : (debtRate * 100).toFixed(1)}% loss. No investment reliably beats it.
+                        </p>
+                        <p>💸 Monthly interest: <strong>{fmtFull(Math.round(monthlyInterest))}</strong> — money that disappears and builds no wealth.</p>
                         {payoffMonths !== Infinity && (
-                          <p>⏱ Payoff time: ~<strong>{payoffMonths < 12 ? `${payoffMonths} months` : `${Math.round(payoffMonths / 12 * 10) / 10} years`}</strong></p>
+                          <p>⏱ Payoff time at minimum payment: ~<strong>{payoffMonths < 12 ? `${payoffMonths} months` : `${Math.round(payoffMonths / 12 * 10) / 10} years`}</strong></p>
+                        )}
+                        {payoffMonths === Infinity && (
+                          <p className="font-bold">⚠️ Debt growing faster than you can pay it at this rate.</p>
                         )}
                       </div>
                     )}
@@ -557,7 +634,10 @@ export default function InvestingFlow({ budgetSurplus }) {
                           </button>
                         ))}
                       </div>
-                      <p className="text-xs text-slate-400 mt-1.5">✓ Best practice: auto-pay the full balance every month. The APR only matters if you carry a balance.</p>
+                      <div className="mt-2 bg-slate-50 rounded-lg px-3 py-2 text-xs text-slate-600 border border-slate-200">
+                        <strong>Avoid carrying credit card debt at all costs.</strong> You can avoid it entirely by always paying the full balance at the end of every month — set up auto-pay.
+                        The slider above lets you see how crushing it becomes if you carry a balance.
+                      </div>
                     </div>
                   </div>
 
@@ -641,9 +721,11 @@ export default function InvestingFlow({ budgetSurplus }) {
 
                       {/* Retirement anchor */}
                       {scenarioB > 10000 && (
-                        <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 space-y-1">
+                        <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 space-y-3">
                           <p className="text-xs font-semibold text-slate-600">What does {fmt(scenarioB)} actually buy in retirement?</p>
-                          <div className="grid grid-cols-3 gap-2 text-center mt-2">
+
+                          {/* 4% rule */}
+                          <div className="grid grid-cols-3 gap-2 text-center">
                             <div>
                               <p className="text-xs text-slate-500">4% withdrawal/yr</p>
                               <p className="text-sm font-bold text-slate-800">{fmtFull(Math.round(scenarioB * 0.04))}</p>
@@ -660,7 +742,32 @@ export default function InvestingFlow({ budgetSurplus }) {
                               <p className="text-xs text-slate-400">at age {22 + horizon}</p>
                             </div>
                           </div>
-                          <p className="text-xs text-slate-400 mt-1">4% rule: standard financial planning withdrawal rate. SS estimate: ~$18k/yr for early claiming at 62 (SSA.gov; full-age average ~$23k — delayed claiming pays more).</p>
+
+                          {/* 4% rule explained */}
+                          <div className="text-xs text-slate-500 bg-white rounded-lg px-3 py-2 border border-slate-200 space-y-1">
+                            <p><strong className="text-slate-700">The 4% Rule</strong> (Bengen, 1994): Withdraw 4% of your portfolio in year 1, then adjust for inflation each year. Research shows this survived 95%+ of 30-year retirements historically.</p>
+                            <p><strong className="text-slate-700">Social Security</strong>: You earn credits by working and paying payroll taxes. The more you earn over your career, the higher your benefit.
+                              At 62 (early): ~$18k/yr. At 67 (full retirement): ~$23k/yr. At 70 (max delay): ~$32k/yr.
+                              <span className="text-indigo-500"> Delaying to 70 pays 77% more than claiming at 62.</span> Source: SSA.gov.
+                            </p>
+                          </div>
+
+                          {/* FIRE number */}
+                          {budgetTotalSpent != null && (
+                            <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2 text-xs">
+                              <p className="text-indigo-900 font-semibold mb-0.5">Your FIRE number</p>
+                              <p className="text-indigo-700">
+                                25 × your annual spending ({fmtFull(budgetTotalSpent * 12)}/yr) ={' '}
+                                <strong>{fmtFull(Math.round(budgetTotalSpent * 12 * 25))}</strong>
+                              </p>
+                              <p className="text-indigo-500 mt-0.5">
+                                This is the portfolio that funds your current lifestyle forever at 4% withdrawal.
+                                {scenarioB >= budgetTotalSpent * 12 * 25
+                                  ? ' ✓ Your projected portfolio exceeds it.'
+                                  : ` You need ${fmt(budgetTotalSpent * 12 * 25 - scenarioB)} more.`}
+                              </p>
+                            </div>
+                          )}
                         </div>
                       )}
                     </>
