@@ -13,6 +13,10 @@ export const MONTHLY_INCOME = 4847;
 export const MONTHLY_BASE_EXPENSES_DEFAULT = 2900;
 export const MAX_MONTHLY_INVESTABLE = MONTHLY_INCOME - MONTHLY_BASE_EXPENSES_DEFAULT; // 1,947
 
+// Partner income — same salary as primary, no label or gender assigned.
+// Activates at the wedding/partnership event (Year 4).
+export const PARTNER_INCOME = 4847;
+
 // CALENDAR_YEARS[i] = the real calendar year for simulation Year i+1 (0-indexed internally)
 // Used ONLY in the end reveal — never shown during simulation.
 export const CALENDAR_YEARS = [
@@ -117,12 +121,22 @@ export const LIFESTYLE_EVENTS = [
         note: 'Lifestyle stays the same. The full raise compounds.',
       },
       {
-        label: 'Invest half, spend half',
-        emoji: '⚖️',
-        monthlyContribDelta: +100,
-        monthlyExpenseDelta: +100,
+        label: 'Build my emergency fund first',
+        emoji: '🛡️',
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: 0,
         cashImpact: 0,
-        note: 'A little better life, a little more compounding.',
+        emergencyFundBoost: +200,
+        note: 'Add $200/mo to checking until you hit the 6-month cap ($17,400). Then auto-invests.',
+      },
+      {
+        label: 'Pay down credit card debt',
+        emoji: '💳',
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: 0,
+        cashImpact: 0,
+        directDebtPayment: +200,
+        note: 'Send $200/mo directly toward CC balance. 24% APR debt is your worst investment.',
       },
       {
         label: 'Absorb it into lifestyle',
@@ -215,13 +229,23 @@ export const LIFESTYLE_EVENTS = [
         note: 'Straight into your investment portfolio.',
       },
       {
-        label: 'Invest half, spend half',
-        emoji: '✌️',
-        investLumpSum: 2250,
+        label: 'Build emergency fund',
+        emoji: '🛡️',
+        investLumpSum: 0,
         monthlyContribDelta: 0,
         monthlyExpenseDelta: 0,
-        cashImpact: +2250,
-        note: '$2,250 invested, $2,250 stays in checking for a vacation or cushion.',
+        cashImpact: +4500,
+        note: 'Goes to checking account. If you\'re under the 6-month cap ($17,400), this is smart before investing more.',
+      },
+      {
+        label: 'Pay down credit card debt',
+        emoji: '💳',
+        investLumpSum: 0,
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: 0,
+        cashImpact: 0,
+        directDebtPayment: 4500,
+        note: 'Dump the bonus on CC debt. 24% APR is a guaranteed 24% return. No investment beats it.',
       },
       {
         label: 'Spend it — you earned it',
@@ -237,8 +261,8 @@ export const LIFESTYLE_EVENTS = [
   {
     year: 7,
     title: 'Baby! Childcare decision',
-    prepTip: 'Your family is about to grow. NYC infant care runs $2,800/mo. Do you have family who could help? Now is the time to figure it out.',
-    scenario: 'Baby arrived. You\'re thrilled. Also: infant care in NYC runs $2,800/mo. What\'s the plan?',
+    prepTip: 'Your family is about to grow. NYC infant care runs $2,800/mo full-time. Do you have family who could help? Now is the time to figure it out.',
+    scenario: 'Baby arrived. You\'re thrilled. Infant care in NYC: $2,800/mo full-time. Your partner is also earning $4,847/mo. What\'s the plan?',
     choices: [
       {
         label: 'Family helps — free care',
@@ -246,15 +270,45 @@ export const LIFESTYLE_EVENTS = [
         monthlyContribDelta: 0,
         monthlyExpenseDelta: 0,
         cashImpact: 0,
-        note: 'Grandparents step in. Huge financial advantage — not everyone has this option.',
+        childcareCost: 0,
+        note: 'Grandparents or family take over. Huge advantage — not everyone has this option. Both of you keep working.',
       },
       {
-        label: 'Professional daycare ($2,800/mo)',
+        label: 'Part-time daycare — 3 days/week ($1,200/mo)',
+        emoji: '🌤️',
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: +1200,
+        cashImpact: 0,
+        childcareCost: 1200,
+        note: 'Affordable middle ground. One partner may work reduced hours on the other days.',
+      },
+      {
+        label: 'Nanny share ($1,500/mo)',
+        emoji: '👨‍👩‍👧',
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: +1500,
+        cashImpact: 0,
+        childcareCost: 1500,
+        note: 'Split a nanny with another family. More flexible than daycare. Both partners work full-time.',
+      },
+      {
+        label: 'Full-time daycare ($2,800/mo)',
         emoji: '🏫',
         monthlyContribDelta: 0,
         monthlyExpenseDelta: +2800,
         cashImpact: -3200,
-        note: '$3,200 upfront (deductible + setup), then $2,800/mo. Budget gets very tight.',
+        childcareCost: 2800,
+        note: '$3,200 upfront (deposits + setup), then $2,800/mo. Both work full-time. Budget is tighter, but dual income absorbs it.',
+      },
+      {
+        label: 'One partner stays home',
+        emoji: '🏠',
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: 0,
+        cashImpact: 0,
+        childcareCost: 0,
+        partnerHomeCare: true,
+        note: 'No daycare cost — saves $2,800/mo. But you lose your partner\'s $4,847/mo income. Net: you\'re $2,047/mo WORSE off than paying for full daycare. Partner can return when kids are in school (Year 14).',
       },
     ],
   },
@@ -271,6 +325,15 @@ export const LIFESTYLE_EVENTS = [
         monthlyExpenseDelta: 0,
         cashImpact: 0,
         note: 'Lifestyle stays the same. The whole raise compounds.',
+      },
+      {
+        label: 'Pay down debt first',
+        emoji: '💳',
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: 0,
+        cashImpact: 0,
+        directDebtPayment: +300,
+        note: 'Send $300/mo toward CC debt. Once debt is gone, redirect to investing.',
       },
       {
         label: 'Invest half, live a little better',
@@ -375,15 +438,24 @@ export const LIFESTYLE_EVENTS = [
     year: 14,
     title: 'Kids in school — breathing room',
     prepTip: 'Your kids will be in school soon. Childcare costs ease up — start thinking about how to use that breathing room.',
-    scenario: "Your kids are now in school full-time. A lot has changed since Year 7. What do you do with your finances now?",
+    scenario: "Your kids are now in school full-time. Childcare costs drop. If your partner stepped back from work for childcare, they can now return. What do you do?",
     choices: [
       {
-        label: 'Max out investing',
+        label: 'Partner returns to work + invest more',
+        emoji: '💼',
+        monthlyContribDelta: +500,
+        monthlyExpenseDelta: 0,
+        cashImpact: 0,
+        partnerReturns: true,
+        note: 'Dual income is back. Kids in school frees everything up. Sprint to the finish.',
+      },
+      {
+        label: 'Invest more with freed-up childcare budget',
         emoji: '🚀',
         monthlyContribDelta: +500,
         monthlyExpenseDelta: 0,
         cashImpact: 0,
-        note: 'You\'ve been squeezed for years. Now you make up for lost time.',
+        note: 'Childcare costs removed from expenses. Direct that money into investing.',
       },
       {
         label: 'Invest more and live better',
@@ -488,6 +560,233 @@ export const LIFESTYLE_EVENTS = [
         monthlyExpenseDelta: -600,
         cashImpact: -3500,
         note: '$3,500 to move. Then $600/mo more to invest for the final 2 years.',
+      },
+    ],
+  },
+];
+
+// Monthly mini-events for months 1-36 (the early-career years).
+// month field is 1-indexed. Same choice format as LIFESTYLE_EVENTS.
+// These fire BEFORE the month computes, like year events.
+export const MONTH_EVENTS = [
+  {
+    month: 2,
+    title: 'Delivery apps are everywhere',
+    scenario: 'Two months in, you notice delivery apps are making it easy to spend without thinking. How often are you actually ordering?',
+    choices: [
+      {
+        label: 'Rarely — mostly cooking at home',
+        emoji: '🥘',
+        monthlyExpenseDelta: 0,
+        cashImpact: 0,
+        note: 'Smart. Home-cooked meals run ~$5/meal vs $20+ delivered.',
+      },
+      {
+        label: '1–2x per week (~$160/mo)',
+        emoji: '🥡',
+        monthlyExpenseDelta: +160,
+        cashImpact: 0,
+        note: 'Reasonable balance. NYC average for adults in their 20s.',
+      },
+      {
+        label: '4+ times a week (~$400/mo)',
+        emoji: '📱',
+        monthlyExpenseDelta: +400,
+        cashImpact: 0,
+        note: 'Convenient, but that\'s $4,800/yr. Every dollar here is a dollar not compounding.',
+      },
+    ],
+  },
+  {
+    month: 4,
+    title: 'Credit card offer arrives',
+    scenario: 'A card offer lands in your mailbox: 2% cashback on everything. The rule you\'ve heard: auto-pay the full balance every month. Do you open it?',
+    choices: [
+      {
+        label: 'Yes — auto-pay in full, collect the rewards',
+        emoji: '💳',
+        monthlyExpenseDelta: 0,
+        cashImpact: 0,
+        note: 'Free 2% cashback. The 24% APR only matters if you carry a balance. You won\'t.',
+      },
+      {
+        label: 'No — I\'ll stick to my debit card',
+        emoji: '🙅',
+        monthlyExpenseDelta: 0,
+        cashImpact: 0,
+        note: 'Totally valid. No change to your finances. Simpler.',
+      },
+    ],
+  },
+  {
+    month: 6,
+    title: 'Office lunch culture',
+    scenario: 'Your team orders lunch together daily. The spots they like run $18–22/meal. You used to bring food from home (~$5/meal). What do you do?',
+    choices: [
+      {
+        label: 'Join them every day',
+        emoji: '🍽️',
+        monthlyExpenseDelta: +280,
+        cashImpact: 0,
+        note: '~$280/mo more than packing lunch. Real relationships are built over lunch.',
+      },
+      {
+        label: 'Join 2–3x a week, bring lunch the rest',
+        emoji: '⚖️',
+        monthlyExpenseDelta: +130,
+        cashImpact: 0,
+        note: 'Balance — connect without blowing the food budget.',
+      },
+      {
+        label: 'Stick to packed lunch',
+        emoji: '🥪',
+        monthlyExpenseDelta: 0,
+        cashImpact: 0,
+        note: 'Save $280/mo. You can socialize without buying $20 grain bowls.',
+      },
+    ],
+  },
+  {
+    month: 8,
+    title: 'Subscription audit',
+    scenario: 'Eight months in, you check your bank statement. You\'re paying for streaming, music, cloud storage, and a gym you\'ve been to twice. What do you do?',
+    choices: [
+      {
+        label: 'Cut the ones I don\'t actually use',
+        emoji: '✂️',
+        monthlyExpenseDelta: -60,
+        cashImpact: 0,
+        note: 'Trim the fat. Typical savings: $40–80/mo. That\'s real money compounding.',
+      },
+      {
+        label: 'Keep them all — I use them',
+        emoji: '📱',
+        monthlyExpenseDelta: 0,
+        cashImpact: 0,
+        note: 'If you actually use them all, they\'re worth it. No change.',
+      },
+    ],
+  },
+  {
+    month: 14,
+    title: 'Gym upgrade temptation',
+    scenario: 'Equinox just opened 2 blocks from your office. $250/mo. Your current gym: $30/mo. The new place has a pool, classes, and a juice bar.',
+    choices: [
+      {
+        label: 'Upgrade to Equinox ($250/mo)',
+        emoji: '🏋️',
+        monthlyExpenseDelta: +220,
+        cashImpact: 0,
+        note: '+$220/mo. Nicer — but you barely use your current gym as is.',
+      },
+      {
+        label: 'Stay at current gym ($30/mo)',
+        emoji: '💪',
+        monthlyExpenseDelta: 0,
+        cashImpact: 0,
+        note: 'Save $220/mo. The workout is the same.',
+      },
+      {
+        label: 'Cancel gym — run outside',
+        emoji: '🏃',
+        monthlyExpenseDelta: -30,
+        cashImpact: 0,
+        note: 'Free. You save $30/mo and NYC parks are legitimately great.',
+      },
+    ],
+  },
+  {
+    month: 18,
+    title: 'Salary negotiation',
+    scenario: 'You\'ve crushed your first 18 months. Your manager likes you. But you\'ve never asked for a raise — your starting salary has been your salary. Do you ask?',
+    choices: [
+      {
+        label: 'Yes — I ask for a raise',
+        emoji: '💪',
+        monthlyContribDelta: +210,
+        monthlyExpenseDelta: 0,
+        cashImpact: 0,
+        note: 'You ask. You get $5k more/yr = $210/mo after taxes. 70% of people who ask receive a raise. Source: Salary.com 2023.',
+      },
+      {
+        label: 'No — feels uncomfortable',
+        emoji: '😶',
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: 0,
+        cashImpact: 0,
+        note: 'Nothing changes. But that $5k/yr, invested for 18 more years, would have been ~$156k at Year 20.',
+      },
+    ],
+  },
+  {
+    month: 24,
+    title: 'Lease renewal — two years in',
+    scenario: 'Two years in your apartment. Lease is up. Your landlord wants $200/mo more. You have options.',
+    choices: [
+      {
+        label: 'Pay the increase',
+        emoji: '🏠',
+        monthlyExpenseDelta: +200,
+        cashImpact: 0,
+        note: '+$200/mo. You like where you live. It\'s easier than moving.',
+      },
+      {
+        label: 'Find a new roommate — share more',
+        emoji: '🤝',
+        monthlyExpenseDelta: -150,
+        cashImpact: 0,
+        note: 'Reduce your share of rent. Less privacy, more savings.',
+      },
+      {
+        label: 'Move somewhere cheaper',
+        emoji: '📦',
+        monthlyExpenseDelta: -300,
+        cashImpact: -2000,
+        note: '$2k to move. Then $300/mo less for the rest of the simulation.',
+      },
+    ],
+  },
+  {
+    month: 30,
+    title: 'Side hustle opportunity',
+    scenario: 'A friend\'s company needs help with their website. They\'ll pay $400/project — steady work, about 2 projects/month on evenings.',
+    choices: [
+      {
+        label: 'Take it — invest the extra income',
+        emoji: '💻',
+        monthlyContribDelta: +500,
+        monthlyExpenseDelta: 0,
+        cashImpact: 0,
+        note: '+$800/mo gross → ~$500/mo after tax. All invested. Real extra income compounds fast.',
+      },
+      {
+        label: 'No thanks — I protect my evenings',
+        emoji: '🛋️',
+        monthlyContribDelta: 0,
+        monthlyExpenseDelta: 0,
+        cashImpact: 0,
+        note: 'Time has value too. No change.',
+      },
+    ],
+  },
+  {
+    month: 36,
+    title: 'Three years in — next chapter',
+    scenario: 'Three years into your career. You\'ve been with your partner for over 2 years. You\'re talking about moving in together before the wedding.',
+    choices: [
+      {
+        label: 'Moving in together now',
+        emoji: '🏠',
+        monthlyExpenseDelta: -400,
+        cashImpact: 0,
+        note: 'Splitting rent = your biggest monthly savings yet. ~$400/mo freed up.',
+      },
+      {
+        label: 'Not quite yet',
+        emoji: '🤷',
+        monthlyExpenseDelta: 0,
+        cashImpact: 0,
+        note: 'No change. You\'ll figure it out.',
       },
     ],
   },

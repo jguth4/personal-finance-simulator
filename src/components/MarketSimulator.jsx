@@ -4,9 +4,9 @@ import {
   ResponsiveContainer, ReferenceLine, Legend,
 } from 'recharts';
 import {
-  TOTAL_YEARS, RETURNS, INFLATION, MARKET_EVENTS, LIFESTYLE_EVENTS,
+  TOTAL_YEARS, RETURNS, INFLATION, MARKET_EVENTS, LIFESTYLE_EVENTS, MONTH_EVENTS,
   REAL_HEADLINES, YEAR_CONTEXT,
-  MONTHLY_INCOME, MONTHLY_BASE_EXPENSES_DEFAULT, MAX_MONTHLY_INVESTABLE,
+  MONTHLY_INCOME, MONTHLY_BASE_EXPENSES_DEFAULT, MAX_MONTHLY_INVESTABLE, PARTNER_INCOME,
 } from '../data/marketHistory';
 import {
   SIMULATION_STOCKS, MIN_PICKS, MAX_PICKS,
@@ -403,21 +403,29 @@ function CrashOverlay({ event, byAsset, alloc, stockPicks, onConfirm }) {
 
 // ── Lifestyle overlay ─────────────────────────────────────────────────────────
 
-function LifestyleOverlay({ event, cashBalance, creditDebt, monthlyContrib, currentYear, hadDaycare, onConfirm }) {
+function LifestyleOverlay({ event, cashBalance, creditDebt, monthlyContrib, currentYear, hadDaycare, partnerActive, onConfirm }) {
   const yearsLeft = TOTAL_YEARS - currentYear;
+  const isMonthEvent = event.month != null;
+  const periodLabel = isMonthEvent ? `Month ${event.month}` : `Year ${currentYear}`;
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
         <div>
-          <p className="text-xs font-bold text-blue-600 uppercase tracking-widest">Life event — Year {currentYear}</p>
+          <p className="text-xs font-bold text-blue-600 uppercase tracking-widest">{isMonthEvent ? 'Life moment' : 'Life event'} — {periodLabel}</p>
           <h3 className="text-lg font-bold text-slate-900 mt-0.5">{event.title}</h3>
           <p className="text-sm text-slate-600 mt-1">{event.scenario}</p>
         </div>
 
         {event.year === 14 && hadDaycare && (
           <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2">
-            <p className="text-xs text-emerald-700">✓ Your $2,800/mo childcare cost has been removed from your expenses.</p>
+            <p className="text-xs text-emerald-700">✓ Your childcare cost has been removed from your expenses.</p>
+          </div>
+        )}
+
+        {event.year === 4 && (
+          <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2">
+            <p className="text-xs text-indigo-700">After the wedding, your partner's income (<strong>+{fmtFull(PARTNER_INCOME)}/mo</strong>) joins the household. Combined take-home: {fmtFull(MONTHLY_INCOME + PARTNER_INCOME)}/mo.</p>
           </div>
         )}
 
@@ -612,14 +620,16 @@ function DebtInterventionOverlay({ monthlyContrib, monthlyExpenses, creditDebt, 
 
 // ── Financial panel (persistent sidebar) ─────────────────────────────────────
 
-function FinancialPanel({ monthlyContrib, monthlyExpenses, cashDisplay, onContribChange }) {
+function FinancialPanel({ monthlyContrib, monthlyExpenses, cashDisplay, partnerActive, partnerHome, onContribChange }) {
   const EMERGENCY_CAP  = 6 * MONTHLY_BASE_EXPENSES_DEFAULT;
-  const monthlyBuffer  = MONTHLY_INCOME - monthlyExpenses - monthlyContrib;
+  const householdIncome = partnerActive ? MONTHLY_INCOME + PARTNER_INCOME : MONTHLY_INCOME;
+  const monthlyBuffer  = householdIncome - monthlyExpenses - monthlyContrib;
   const overInvesting  = monthlyBuffer < 0;
+  const maxInvestable  = partnerActive ? Math.round((MONTHLY_INCOME + PARTNER_INCOME) * 0.7) : MAX_MONTHLY_INVESTABLE;
 
   function projectPayoffMonths() {
     if (cashDisplay.debt <= 0) return null;
-    const surplus = MONTHLY_INCOME - monthlyExpenses - monthlyContrib;
+    const surplus = householdIncome - monthlyExpenses - monthlyContrib;
     let d = cashDisplay.debt;
     for (let m = 0; m < 480; m++) {
       d = d * 1.02 - surplus;
@@ -636,9 +646,21 @@ function FinancialPanel({ monthlyContrib, monthlyExpenses, cashDisplay, onContri
         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Monthly budget</p>
         <div className="space-y-1.5 text-xs">
           <div className="flex justify-between">
-            <span className="text-slate-500">Take-home</span>
+            <span className="text-slate-500">Your take-home</span>
             <span className="font-semibold text-slate-700">{fmtFull(MONTHLY_INCOME)}</span>
           </div>
+          {partnerActive && !partnerHome && (
+            <div className="flex justify-between">
+              <span className="text-indigo-500">Partner take-home</span>
+              <span className="font-semibold text-indigo-600">+{fmtFull(PARTNER_INCOME)}</span>
+            </div>
+          )}
+          {partnerHome && (
+            <div className="flex justify-between">
+              <span className="text-amber-500">Partner (home — no income)</span>
+              <span className="font-semibold text-amber-600">$0</span>
+            </div>
+          )}
           <div className="flex justify-between">
             <span className="text-slate-500">Expenses</span>
             <span className="font-semibold text-red-500">−{fmtFull(monthlyExpenses)}</span>
@@ -667,7 +689,7 @@ function FinancialPanel({ monthlyContrib, monthlyExpenses, cashDisplay, onContri
           <span className="text-xs font-semibold text-slate-700">Monthly investment</span>
           <span className="text-xs font-bold text-indigo-700">{fmtFull(monthlyContrib)}/mo</span>
         </div>
-        <input type="range" min={0} max={MAX_MONTHLY_INVESTABLE} step={25}
+        <input type="range" min={0} max={maxInvestable} step={25}
           value={monthlyContrib}
           onChange={e => onContribChange(Number(e.target.value))}
           className="w-full accent-indigo-600"
@@ -675,7 +697,7 @@ function FinancialPanel({ monthlyContrib, monthlyExpenses, cashDisplay, onContri
         />
         <div className="flex justify-between text-xs text-slate-400">
           <span>$0</span>
-          <span>{fmtFull(MAX_MONTHLY_INVESTABLE)} max</span>
+          <span>{fmtFull(maxInvestable)} max</span>
         </div>
       </div>
 
@@ -737,6 +759,41 @@ function SimTooltip({ active, payload, label }) {
   );
 }
 
+// ── Month summary card ────────────────────────────────────────────────────────
+
+function MonthSummaryCard({ summary, onContinue }) {
+  const { month, total, cash, debt, monthEvent } = summary;
+  const year = Math.ceil(month / 12);
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
+      <div className="flex justify-between items-start">
+        <div>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Month {month} · Year {year}</p>
+          <p className="text-xl font-bold text-indigo-700 mt-0.5">{fmt(total)}</p>
+        </div>
+        <div className="text-right text-xs">
+          <p className="text-slate-500">Checking</p>
+          <p className={`font-semibold ${cash < 1000 ? 'text-amber-600' : 'text-slate-700'}`}>{fmtFull(Math.round(cash))}</p>
+          {debt > 0 && <p className="text-red-600 font-semibold mt-0.5">CC Debt: {fmtFull(Math.round(debt))}</p>}
+        </div>
+      </div>
+      {monthEvent && (
+        <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+          <span className="text-sm flex-shrink-0 mt-0.5">🔔</span>
+          <p className="text-xs text-amber-800">
+            <span className="font-semibold">Coming up:</span> {monthEvent.title}
+          </p>
+        </div>
+      )}
+      <button onClick={onContinue}
+        className="w-full bg-slate-800 hover:bg-slate-900 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors">
+        Continue to Month {month + 1} →
+      </button>
+    </div>
+  );
+}
+
 // ── Year summary card ─────────────────────────────────────────────────────────
 
 function YearSummaryCard({ summary, onContinue }) {
@@ -756,10 +813,10 @@ function YearSummaryCard({ summary, onContinue }) {
             <p className="font-bold text-indigo-700">{fmtFull(initialMonthly ?? 300)}/mo</p>
           </div>
         </div>
-        <p className="text-xs text-emerald-700">Life events will pause the simulation. Market crashes will test your resolve. You decide when to advance — one year at a time.</p>
+        <p className="text-xs text-emerald-700">Your first 3 years advance month by month — you'll see habits form in real time. Then the simulation shifts to year-by-year for the longer arc. Life events and market crashes will interrupt along the way.</p>
         <button onClick={onContinue}
           className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl text-sm transition-colors">
-          Start Year 1 →
+          Start Month 1 →
         </button>
       </div>
     );
@@ -1072,12 +1129,19 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
   const [pendingBankruptcies, setPendingBankruptcies] = useState([]);
   const [lifestyleChoices, setLifestyleChoices]       = useState([]);
   const [yearSummary, setYearSummary]                 = useState(null);
+  const [monthSummary, setMonthSummary]               = useState(null);
+  const [partnerActive, setPartnerActive]             = useState(false);
+  const [partnerHome, setPartnerHome]                 = useState(false);
 
   // Refs — synchronous access inside computation loop and event handlers
   const cashRef                  = useRef(3000);
   const creditRef                = useRef(0);
   const expensesRef              = useRef(MONTHLY_BASE_EXPENSES_DEFAULT);
   const hadDaycareRef            = useRef(false);
+  const childcareCostRef         = useRef(0);   // tracks actual childcare cost for year-14 reversal
+  const partnerActiveRef         = useRef(false);
+  const partnerHomeRef           = useRef(false);
+  const incomeRef                = useRef(MONTHLY_INCOME); // doubles when partner joins
   const monthlyContribRef        = useRef(300);
   const debtInterventionFiredRef = useRef(false);
   const byAssetRef               = useRef({});
@@ -1097,6 +1161,85 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
     setMonthlyContrib(val);
   }
 
+  // Shared cash-flow logic for one month tick (used by both computeMonthInternal and computeYearInternal)
+  function applyMonthlyCashFlow(mc) {
+    const monthlyNet = incomeRef.current - expensesRef.current - mc;
+    let newCash = cashRef.current + monthlyNet;
+    if (creditRef.current > 0) {
+      newCash -= Math.round(creditRef.current * 0.02);
+    }
+    if (newCash < 0) {
+      creditRef.current += Math.abs(newCash);
+      newCash = 0;
+    } else if (creditRef.current > 0) {
+      const payment = Math.min(newCash, creditRef.current);
+      creditRef.current -= payment;
+      newCash -= payment;
+    }
+    const EMERGENCY_CAP = 6 * MONTHLY_BASE_EXPENSES_DEFAULT;
+    if (newCash > EMERGENCY_CAP) newCash = EMERGENCY_CAP;
+    cashRef.current = newCash;
+  }
+
+  // Computes ONE month synchronously. Used for the monthly cadence (months 1–36).
+  function computeMonthInternal(monthIdx, cfg) {
+    const { alloc, stockPicks } = cfg;
+    const mc   = monthlyContribRef.current;
+    let assets = byAssetRef.current;
+
+    assets = computePortfolioAfterMonth(assets, alloc, mc, monthIdx, stockPicks);
+    const total = totalPortfolio(assets);
+
+    applyMonthlyCashFlow(mc);
+
+    let debtCrossed = false;
+    if (creditRef.current > 5000 && !debtInterventionFiredRef.current) debtCrossed = true;
+
+    const yearIdx     = Math.floor(monthIdx / 12);
+    const vtsaxAnnual = RETURNS.vtsax[yearIdx] ?? 0;
+    const cashAnnual  = RETURNS.cash[yearIdx]  ?? 0;
+    vtsaxBenchRef.current = vtsaxBenchRef.current * (1 + Math.pow(1 + vtsaxAnnual, 1/12) - 1) + mc;
+    cashBenchRef.current  = cashBenchRef.current  * (1 + Math.pow(1 + cashAnnual,  1/12) - 1) + mc;
+
+    byAssetRef.current = assets;
+    const nextMonthIdx = monthIdx + 1;
+
+    setByAsset(assets);
+    setCurrentMonth(nextMonthIdx);
+    setHistory(prev => [...prev, { total, vtsaxBenchmark: vtsaxBenchRef.current, cashBenchmark: cashBenchRef.current }]);
+    setCashDisplay({ balance: cashRef.current, debt: creditRef.current });
+
+    const monthNum  = monthIdx + 1;
+    const isYearEnd = nextMonthIdx % 12 === 0;
+
+    if (isYearEnd) {
+      const yearNum   = nextMonthIdx / 12;
+      const nextLfe   = LIFESTYLE_EVENTS.find(e => e.year === yearNum + 1) ?? null;
+      const prevTotal = prevYearTotalRef.current;
+      prevYearTotalRef.current = total;
+      setYearSummary({
+        year:           yearNum,
+        portfolioEnd:   total,
+        portfolioStart: prevTotal,
+        vtsaxEnd:       vtsaxBenchRef.current,
+        cashEnd:        cashRef.current,
+        debtEnd:        creditRef.current,
+        context:        YEAR_CONTEXT[yearNum] ?? null,
+        nextEvent:      nextLfe,
+      });
+    } else {
+      const nextMonthEvent = MONTH_EVENTS.find(e => e.month === nextMonthIdx + 1) ?? null;
+      setMonthSummary({ month: monthNum, total, cash: cashRef.current, debt: creditRef.current, monthEvent: nextMonthEvent });
+    }
+
+    if (debtCrossed) {
+      debtInterventionFiredRef.current = true;
+      setPhase('PAUSED_DEBT_INTERVENTION');
+      return;
+    }
+    setPhase(isYearEnd ? 'YEAR_SUMMARY' : 'MONTH_SUMMARY');
+  }
+
   // Synchronously computes 12 months starting from startMonth using refs.
   // Batch-updates React state, then transitions to YEAR_SUMMARY (or REVEAL/PAUSED_DEBT_INTERVENTION).
   function computeYearInternal(startMonth, cfg) {
@@ -1112,23 +1255,7 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
       assets = computePortfolioAfterMonth(assets, alloc, mc, monthIdx, stockPicks);
       const total = totalPortfolio(assets);
 
-      const monthlyNet = MONTHLY_INCOME - expensesRef.current - mc;
-      let newCash = cashRef.current + monthlyNet;
-      if (creditRef.current > 0) {
-        newCash -= Math.round(creditRef.current * 0.02);
-      }
-      if (newCash < 0) {
-        creditRef.current += Math.abs(newCash);
-        newCash = 0;
-      } else if (creditRef.current > 0) {
-        const payment = Math.min(newCash, creditRef.current);
-        creditRef.current -= payment;
-        newCash -= payment;
-      }
-      const EMERGENCY_CAP = 6 * MONTHLY_BASE_EXPENSES_DEFAULT;
-      if (newCash > EMERGENCY_CAP) newCash = EMERGENCY_CAP;
-      cashRef.current = newCash;
-
+      applyMonthlyCashFlow(mc);
       if (creditRef.current > 5000 && !debtInterventionFiredRef.current) debtCrossed = true;
 
       const yearIdx     = Math.floor(monthIdx / 12);
@@ -1174,7 +1301,28 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
     setPhase('YEAR_SUMMARY');
   }
 
-  // Called by the "Continue to Year X" button and after all event confirmations.
+  // Central Continue dispatcher — monthly for months 0-35, yearly from month 36 onward.
+  function handleContinue() {
+    if (currentMonth < 36) {
+      handleContinueMonth();
+    } else {
+      handleContinueYear();
+    }
+  }
+
+  // Month cadence: checks for month events, then computes one month.
+  function handleContinueMonth() {
+    const nextMonthNum = currentMonth + 1; // 1-indexed month we're about to compute
+    const mev = MONTH_EVENTS.find(e => e.month === nextMonthNum);
+    if (mev) {
+      setActiveEvent(mev);
+      setPhase('PAUSED_LIFESTYLE');
+      return;
+    }
+    computeMonthInternal(currentMonth, config);
+  }
+
+  // Year cadence: checks for year events, then computes 12 months.
   function handleContinueYear() {
     const startMonth = currentMonth;
     const yearNum    = Math.floor(startMonth / 12) + 1;
@@ -1196,8 +1344,9 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
     }
     if (lfe) {
       if (lfe.year === 14 && hadDaycareRef.current) {
-        expensesRef.current = Math.max(MONTHLY_BASE_EXPENSES_DEFAULT, expensesRef.current - 2800);
-        setMonthlyExpenses(prev => Math.max(MONTHLY_BASE_EXPENSES_DEFAULT, prev - 2800));
+        const revertAmount = childcareCostRef.current || 2800;
+        expensesRef.current = Math.max(MONTHLY_BASE_EXPENSES_DEFAULT, expensesRef.current - revertAmount);
+        setMonthlyExpenses(prev => Math.max(MONTHLY_BASE_EXPENSES_DEFAULT, prev - revertAmount));
       }
       setActiveEvent(lfe);
       setPhase('PAUSED_LIFESTYLE');
@@ -1217,6 +1366,10 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
     creditRef.current                = 0;
     expensesRef.current              = MONTHLY_BASE_EXPENSES_DEFAULT;
     hadDaycareRef.current            = false;
+    childcareCostRef.current         = 0;
+    partnerActiveRef.current         = false;
+    partnerHomeRef.current           = false;
+    incomeRef.current                = MONTHLY_INCOME;
     monthlyContribRef.current        = monthly;
     debtInterventionFiredRef.current = false;
     byAssetRef.current               = initial;
@@ -1231,7 +1384,10 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
     setLifestyleChoices([]);
     setCashDisplay({ balance: 3000, debt: 0 });
     setMonthlyExpenses(MONTHLY_BASE_EXPENSES_DEFAULT);
+    setPartnerActive(false);
+    setPartnerHome(false);
     setYearSummary({ year: 0, initialMonthly: monthly });
+    setMonthSummary(null);
     setPhase('YEAR_SUMMARY');
   }
 
@@ -1242,6 +1398,10 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
     creditRef.current                = 0;
     expensesRef.current              = MONTHLY_BASE_EXPENSES_DEFAULT;
     hadDaycareRef.current            = false;
+    childcareCostRef.current         = 0;
+    partnerActiveRef.current         = false;
+    partnerHomeRef.current           = false;
+    incomeRef.current                = MONTHLY_INCOME;
     monthlyContribRef.current        = 300;
     debtInterventionFiredRef.current = false;
     byAssetRef.current               = {};
@@ -1259,7 +1419,10 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
     setPendingBankruptcies([]);
     setCashDisplay({ balance: 3000, debt: 0 });
     setMonthlyExpenses(MONTHLY_BASE_EXPENSES_DEFAULT);
+    setPartnerActive(false);
+    setPartnerHome(false);
     setYearSummary(null);
+    setMonthSummary(null);
   }
 
   function handleCrashConfirm({ moves, newByAsset }) {
@@ -1269,7 +1432,7 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
       setPanicMoves(pm => [...pm, ...moves.map(m => ({ ...m, month: currentMonth }))]);
     }
     setActiveEvent(null);
-    computeYearInternal(currentMonth, config);
+    computeYearInternal(currentMonth, config); // crashes always in yearly phase
   }
 
   function handleLifestyleConfirm({ choice }) {
@@ -1277,8 +1440,36 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
     const yearsLeft   = TOTAL_YEARS - displayYear + 1;
     const { cost, benefit } = computeChoiceImpact(choice, yearsLeft);
 
-    if (activeEvent?.year === 7 && (choice.monthlyExpenseDelta ?? 0) >= 2800) {
-      hadDaycareRef.current = true;
+    // Childcare tracking for year-14 reversal
+    if (activeEvent?.year === 7) {
+      const childCost = choice.childcareCost ?? 0;
+      childcareCostRef.current = childCost;
+      if (childCost >= 1200) hadDaycareRef.current = true;
+
+      // One partner stays home — disable partner income
+      if (choice.partnerHomeCare) {
+        incomeRef.current     = MONTHLY_INCOME;
+        partnerActiveRef.current = false;
+        partnerHomeRef.current   = true;
+        setPartnerActive(false);
+        setPartnerHome(true);
+      }
+    }
+
+    // Wedding (year 4) — activate partner income
+    if (activeEvent?.year === 4) {
+      incomeRef.current     = MONTHLY_INCOME + PARTNER_INCOME;
+      partnerActiveRef.current = true;
+      setPartnerActive(true);
+    }
+
+    // Partner returns to work (year 14)
+    if (choice.partnerReturns && partnerHomeRef.current) {
+      incomeRef.current     = MONTHLY_INCOME + PARTNER_INCOME;
+      partnerActiveRef.current = true;
+      partnerHomeRef.current   = false;
+      setPartnerActive(true);
+      setPartnerHome(false);
     }
 
     if (choice.cashImpact) {
@@ -1294,6 +1485,15 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
 
     if (choice.loanAmount > 0) {
       creditRef.current += choice.loanAmount;
+      setCashDisplay({ balance: cashRef.current, debt: creditRef.current });
+    }
+
+    // Direct CC debt paydown (new: for raise/bonus "pay debt" choices)
+    if ((choice.directDebtPayment ?? 0) > 0) {
+      const payment = Math.min(creditRef.current, choice.directDebtPayment);
+      creditRef.current = Math.max(0, creditRef.current - payment);
+      const leftover = choice.directDebtPayment - payment;
+      if (leftover > 0) cashRef.current = Math.min(cashRef.current + leftover, 6 * MONTHLY_BASE_EXPENSES_DEFAULT);
       setCashDisplay({ balance: cashRef.current, debt: creditRef.current });
     }
 
@@ -1337,7 +1537,13 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
     }]);
 
     setActiveEvent(null);
-    computeYearInternal(currentMonth, config);
+
+    // After a month event, compute one month; after a year event, compute one year
+    if (activeEvent?.month != null) {
+      computeMonthInternal(currentMonth, config);
+    } else {
+      computeYearInternal(currentMonth, config);
+    }
   }
 
   function handleBankruptcyConfirm() {
@@ -1355,7 +1561,13 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
   function handleDebtInterventionConfirm({ newContrib }) {
     monthlyContribRef.current = newContrib;
     setMonthlyContrib(newContrib);
-    setPhase('YEAR_SUMMARY');
+    // Return to the appropriate summary phase based on where we are
+    const atYearBoundary = currentMonth % 12 === 0;
+    if (currentMonth <= 36 && !atYearBoundary) {
+      setPhase('MONTH_SUMMARY');
+    } else {
+      setPhase('YEAR_SUMMARY');
+    }
   }
 
   if (phase === 'SETUP') {
@@ -1383,6 +1595,7 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
   const vtsaxCurrent  = vtsaxBenchRef.current;
   const chartData     = history.map((p, i) => ({ month: i, ...p }));
   const displayedYear = yearSummary?.year ?? Math.floor(currentMonth / 12);
+  const displayedMonth = monthSummary?.month ?? currentMonth;
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
@@ -1404,6 +1617,7 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
           monthlyContrib={monthlyContrib}
           currentYear={Math.floor(currentMonth / 12) + 1}
           hadDaycare={hadDaycareRef.current}
+          partnerActive={partnerActive}
           onConfirm={handleLifestyleConfirm}
         />
       )}
@@ -1433,9 +1647,11 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
             <div>
               <p className="text-xs font-bold text-emerald-600 uppercase tracking-widest">Market Simulator</p>
               <h2 className="text-xl font-bold text-slate-900">
-                {displayedYear === 0
+                {currentMonth === 0
                   ? 'Starting position'
-                  : `Year ${displayedYear} of ${TOTAL_YEARS}`}
+                  : currentMonth <= 36
+                    ? `Month ${displayedMonth} · Year ${Math.ceil(displayedMonth / 12)} of ${TOTAL_YEARS}`
+                    : `Year ${displayedYear} of ${TOTAL_YEARS}`}
               </h2>
             </div>
             {currentTotal > 0 && (
@@ -1457,9 +1673,14 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
               style={{ width: `${(currentMonth / TOTAL_MONTHS) * 100}%` }} />
           </div>
 
-          {/* Year summary card — shown between years */}
+          {/* Month summary card — shown between months 1–35 */}
+          {phase === 'MONTH_SUMMARY' && monthSummary && (
+            <MonthSummaryCard summary={monthSummary} onContinue={handleContinue} />
+          )}
+
+          {/* Year summary card — shown between years (and at year-ends of months 12/24/36) */}
           {phase === 'YEAR_SUMMARY' && yearSummary && (
-            <YearSummaryCard summary={yearSummary} onContinue={handleContinueYear} />
+            <YearSummaryCard summary={yearSummary} onContinue={handleContinue} />
           )}
 
           {/* Chart */}
@@ -1520,6 +1741,8 @@ export default function MarketSimulator({ initialSurplus = 300 }) {
             monthlyContrib={monthlyContrib}
             monthlyExpenses={monthlyExpenses}
             cashDisplay={cashDisplay}
+            partnerActive={partnerActive}
+            partnerHome={partnerHome}
             onContribChange={handleContribChange}
           />
         </div>
